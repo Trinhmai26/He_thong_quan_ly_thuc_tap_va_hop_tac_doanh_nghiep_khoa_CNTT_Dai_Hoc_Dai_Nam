@@ -9,7 +9,12 @@ async function columnExists(table, column) {
 async function ensureSinhVienHasGiangVienHuongDan() {
   const exists = await columnExists('sinh_vien', 'giang_vien_huong_dan');
   if (!exists) {
-    await query(`ALTER TABLE sinh_vien ADD COLUMN giang_vien_huong_dan VARCHAR(255) NULL AFTER don_vi_thuc_tap`);
+    const hasDonViThucTap = await columnExists('sinh_vien', 'don_vi_thuc_tap');
+    const alterSql = hasDonViThucTap
+      ? `ALTER TABLE sinh_vien ADD COLUMN giang_vien_huong_dan VARCHAR(255) NULL AFTER don_vi_thuc_tap`
+      : `ALTER TABLE sinh_vien ADD COLUMN giang_vien_huong_dan VARCHAR(255) NULL`;
+
+    await query(alterSql);
     await query(`ALTER TABLE sinh_vien ADD INDEX idx_gv_huong_dan (giang_vien_huong_dan)`);
   }
 }

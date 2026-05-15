@@ -172,6 +172,53 @@ class RegistrationPeriod {
       throw error;
     }
   }
+
+  // Gia hạn thời gian kết thúc đợt đăng ký
+  static async extendPeriod(id, newEndTime) {
+    try {
+      const period = await db.query(
+        'SELECT id, title, end_time FROM thoi_gian_dang_ky_dot_thuc_tap WHERE id = ? LIMIT 1',
+        [id]
+      );
+
+      if (!period || period.length === 0) {
+        return { success: false, message: 'Không tìm thấy đợt đăng ký' };
+      }
+
+      const currentEnd = new Date(period[0].end_time);
+      const nextEnd = new Date(newEndTime);
+
+      if (!Number.isFinite(nextEnd.getTime())) {
+        return { success: false, message: 'Thời gian gia hạn không hợp lệ' };
+      }
+
+      if (nextEnd <= currentEnd) {
+        return { success: false, message: 'Thời gian gia hạn phải sau thời gian kết thúc hiện tại' };
+      }
+
+      const result = await db.query(
+        'UPDATE thoi_gian_dang_ky_dot_thuc_tap SET end_time = ?, updated_at = NOW() WHERE id = ?',
+        [newEndTime, id]
+      );
+
+      if (!result || result.affectedRows === 0) {
+        return { success: false, message: 'Không thể gia hạn đợt đăng ký' };
+      }
+
+      return {
+        success: true,
+        message: 'Gia hạn đợt đăng ký thành công',
+        data: {
+          id: Number(id),
+          old_end_time: period[0].end_time,
+          new_end_time: newEndTime
+        }
+      };
+    } catch (error) {
+      console.error('Error in extendPeriod:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = RegistrationPeriod;

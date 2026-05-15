@@ -1,0 +1,11 @@
+Flask==2.3.2
+Flask-Cors==4.0.1
+PyMuPDF==1.22.5
+sentence-transformers==2.2.2
+torch==2.0.1
+pytesseract==0.3.10
+ultralytics==8.2.38
+opencv-python==4.10.0.84
+Pillow==10.4.0
+numpy==1.26.4
+beautifulsoup4==4.12.3

@@ -175,13 +175,29 @@ async function createTables() {
 
   } catch (error) {
     console.error('❌ Lỗi tạo cấu trúc database:', error);
-  } finally {
-    // Đóng kết nối
-    setTimeout(() => {
-      process.exit(0);
-    }, 1000);
+    throw error;
   }
 }
 
-// Chạy tạo bảng
-createTables();
+if (require.main === module) {
+  const { createDatabaseConnection, closeConnections } = require('./src/database/connection');
+
+  createDatabaseConnection()
+    .then(() => createTables())
+    .then(() => closeConnections())
+    .then(() => {
+      console.log('🎉 Hoàn tất tạo các bảng lõi!');
+      process.exit(0);
+    })
+    .catch(async (error) => {
+      try {
+        await closeConnections();
+      } catch (_) {
+        // Ignore close errors in CLI mode
+      }
+      console.error('💥 Tạo các bảng lõi thất bại:', error.message);
+      process.exit(1);
+    });
+}
+
+module.exports = { createTables };

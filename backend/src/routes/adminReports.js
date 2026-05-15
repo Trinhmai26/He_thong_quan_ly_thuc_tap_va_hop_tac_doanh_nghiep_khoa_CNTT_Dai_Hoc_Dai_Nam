@@ -127,6 +127,11 @@ router.get('/', authenticateToken, requireRole(['admin']), AdminReportsControlle
  */
 router.get('/export', authenticateToken, requireRole(['admin']), AdminReportsController.exportReports);
 
+// ===== Periodic updates (daily / weekly / overall) =====
+// Must be declared BEFORE the '/:id' route below to avoid being captured as an ID.
+router.get('/periodic-updates', authenticateToken, requireRole(['admin']), AdminReportsController.getPeriodicUpdates);
+router.get('/periodic-updates/details', authenticateToken, requireRole(['admin']), AdminReportsController.getPeriodicUpdateDetails);
+
 /**
  * @swagger
  * /api/admin/reports/{id}:

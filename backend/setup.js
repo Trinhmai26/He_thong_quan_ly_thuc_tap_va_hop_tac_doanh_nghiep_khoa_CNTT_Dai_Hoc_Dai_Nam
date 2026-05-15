@@ -1,5 +1,6 @@
-const { createTables } = require('./src/database/migrate');
-const { seedData } = require('./src/database/seed');
+const { createDatabaseConnection, closeConnections } = require('./src/database/connection');
+const { createTables } = require('./create-new-tables');
+const { createMissingTables } = require('./create-missing-tables');
 
 const setupDatabase = async () => {
   try {
@@ -7,36 +8,41 @@ const setupDatabase = async () => {
     console.log('📍 Khoa CNTT - Đại học Đại Nam');
     console.log('');
 
-    // Bước 1: Tạo schema
-    console.log('📝 Bước 1: Tạo database schema...');
-    await createTables();
-    console.log('✅ Hoàn thành tạo schema!');
+    // Bước 1: Tạo database nếu chưa tồn tại
+    console.log('📝 Bước 1: Tạo database...');
+    await createDatabaseConnection();
+    console.log('✅ Database đã sẵn sàng!');
     console.log('');
 
-    // Bước 2: Thêm dữ liệu mẫu
-    console.log('📝 Bước 2: Thêm dữ liệu mẫu...');
-    await seedData();
-    console.log('✅ Hoàn thành thêm dữ liệu mẫu!');
+    // Bước 2: Tạo schema lõi
+    console.log('📝 Bước 2: Tạo schema lõi...');
+    await createTables();
+    console.log('✅ Hoàn thành tạo schema lõi!');
+    console.log('');
+
+    // Bước 3: Tạo các bảng bổ sung
+    console.log('📝 Bước 3: Tạo các bảng bổ sung...');
+    await createMissingTables();
+    console.log('✅ Hoàn thành tạo tất cả bảng!');
     console.log('');
 
     console.log('🎉 ===== THIẾT LẬP HOÀN TẤT =====');
     console.log('');
     console.log('📊 Hệ thống đã sẵn sàng với:');
     console.log('   ✓ 10 bảng dữ liệu');
-    console.log('   ✓ Dữ liệu mẫu cho tất cả roles');
-    console.log('   ✓ Tài khoản demo');
     console.log('');
-    console.log('🔐 Tài khoản demo:');
-    console.log('   👤 Admin: admin@dainam.edu.vn / 123456');
-    console.log('   🎓 Sinh viên: sv001@student.dainam.edu.vn / 123456');
-    console.log('   👨‍🏫 Giảng viên: gv001@dainam.edu.vn / 123456');
-    console.log('   🏢 Doanh nghiệp: contact@techcorp.com / 123456');
-    console.log('');
-    console.log('🚀 Bây giờ bạn có thể chạy: npm start');
+    console.log('🚀 Bây giờ bạn có thể chạy: npm run dev');
     console.log('───────────────────────────────────────');
+
+    await closeConnections();
 
   } catch (error) {
     console.error('💥 Lỗi thiết lập database:', error);
+    try {
+      await closeConnections();
+    } catch (_) {
+      // Ignore close errors during setup failure
+    }
     process.exit(1);
   }
 };

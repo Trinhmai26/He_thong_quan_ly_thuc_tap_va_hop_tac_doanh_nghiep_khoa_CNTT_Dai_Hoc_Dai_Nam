@@ -203,8 +203,8 @@ class AdminReportsController {
     }
   }
 
-  // Export reports to Excel
-  static async exportReports(req, res) {
+  // Legacy submitted-report export retained for older maintenance paths.
+  static async _legacyExportReports(req, res) {
     try {
       const filters = {
         submitterType: req.query.submitterType,
@@ -284,6 +284,80 @@ class AdminReportsController {
       });
     }
   }
+  static async exportReports(req, res) {
+    try {
+      const filters = {
+        status: req.query.status,
+        search: req.query.search
+      };
+
+      Object.keys(filters).forEach(key => {
+        if (!filters[key]) delete filters[key];
+      });
+
+      const result = await AdminReports.getSubmittedReports(1, 10000, {
+        ...filters,
+        allowLargeLimit: true
+      });
+      const reports = result.reports;
+
+      const ExcelJS = require('exceljs');
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Bao cao thuc tap');
+
+      worksheet.columns = [
+        { header: 'STT', key: 'stt', width: 8 },
+        { header: 'Ma sinh vien', key: 'studentId', width: 18 },
+        { header: 'Ho ten sinh vien', key: 'name', width: 30 },
+        { header: 'Doanh nghiep thuc tap', key: 'company', width: 32 },
+        { header: 'Giang vien huong dan', key: 'supervisor', width: 28 },
+        { header: 'Trang thai', key: 'status', width: 18 },
+        { header: 'So bao cao da nop', key: 'reportCount', width: 18 },
+        { header: 'Ngay nop gan nhat', key: 'lastReportDate', width: 22 }
+      ];
+
+      reports.forEach((report, index) => {
+        worksheet.addRow({
+          stt: index + 1,
+          studentId: report.studentId,
+          name: report.name,
+          company: report.company,
+          supervisor: report.supervisor,
+          status: AdminReports.getInternshipStatusText(report.status),
+          reportCount: Number(report.reportCount) || 0,
+          lastReportDate: report.lastReportDate
+            ? new Date(report.lastReportDate).toLocaleString('vi-VN')
+            : ''
+        });
+      });
+
+      worksheet.getRow(1).font = { bold: true };
+      worksheet.getRow(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE6F3FF' }
+      };
+
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      );
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename=bao-cao-thuc-tap-${new Date().toISOString().split('T')[0]}.xlsx`
+      );
+
+      await workbook.xlsx.write(res);
+      res.end();
+    } catch (error) {
+      console.error('Error exporting reports:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Lỗi khi xuất báo cáo',
+        error: error.message
+      });
+    }
+  }
 }
 
 // Helper function to convert status to Vietnamese
@@ -296,5 +370,37 @@ function getStatusText(status) {
     default: return status;
   }
 }
+
+// ====== PERIODIC UPDATES ======
+AdminReportsController.getPeriodicUpdates = async (req, res) => {
+  try {
+    const data = await AdminReports.getPeriodicUpdates();
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error getting periodic updates:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi lấy dữ liệu cập nhật định kỳ',
+      error: error.message
+    });
+  }
+};
+
+AdminReportsController.getPeriodicUpdateDetails = async (req, res) => {
+  try {
+    const type = req.query.type || 'overall';
+    const period = req.query.period || 'daily';
+    const limit = req.query.limit || 50;
+    const items = await AdminReports.getPeriodicUpdateDetails(type, period, limit);
+    res.json({ success: true, data: items, meta: { type, period, count: items.length } });
+  } catch (error) {
+    console.error('Error getting periodic update details:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi lấy chi tiết cập nhật định kỳ',
+      error: error.message
+    });
+  }
+};
 
 module.exports = AdminReportsController;

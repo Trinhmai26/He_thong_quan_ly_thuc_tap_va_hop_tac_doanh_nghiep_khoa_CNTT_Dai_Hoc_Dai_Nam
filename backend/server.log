@@ -1,0 +1,219 @@
+[dotenv@17.2.2] injecting env (21) from .env -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.2] injecting env (0) from .env -- tip: 📡 version env with Radar: https://dotenvx.com/radar
+🔍 Using query() without params
+🔍 Kiểm tra kết nối database...
+(node:9876) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+✅ Kết nối MySQL database thành công!
+✅ Kết nối database thành công!
+🧩 Kiểm tra & bổ sung cột còn thiếu...
+🔍 Using query() with params: [ 'sinh_vien', 'giang_vien_huong_dan' ]
+🔍 Using query() with params: [ 'dot_thuc_tap', 'so_sinh_vien_tham_gia' ]
+🔍 Using query() without params
+🔍 Using query() with params: [ 'dot_thuc_tap', 'so_giang_vien_huong_dan' ]
+🔍 Using query() without params
+🔍 Using query() with params: [ 'dot_thuc_tap', 'so_doanh_nghiep_tham_gia' ]
+✅ Cấu trúc bảng đã sẵn sàng
+🔍 Using query() with params: [ 'so_sinh_vien_excel' ]
+🔍 Using query() with params: [ 'so_giang_vien_excel' ]
+🔍 Using query() with params: [ 'so_doanh_nghiep_excel' ]
+✅ Các cột đếm đã tồn tại trong dot_thuc_tap
+🔍 Using query() with params: [ 'sinh_vien', 'nguyen_vong_thuc_tap' ]
+🔍 Using query() with params: [ 'sinh_vien', 'vi_tri_muon_ung_tuyen_thuc_tap' ]
+🔍 Using query() with params: [ 'sinh_vien', 'don_vi_thuc_tap' ]
+🔍 Using query() with params: [ 'sinh_vien', 'cong_ty_tu_lien_he' ]
+🔍 Using query() with params: [ 'sinh_vien', 'dia_chi_cong_ty' ]
+🔍 Using query() with params: [ 'sinh_vien', 'nguoi_lien_he_cong_ty' ]
+🔍 Using query() with params: [ 'sinh_vien', 'sdt_nguoi_lien_he' ]
+🔍 Using query() with params: [ 'sinh_vien', 'cv_path' ]
+🔍 Using query() with params: [ 'sinh_vien', 'trang_thai_phan_cong' ]
+🔍 Using query() with params: [ 'sinh_vien', 'giang_vien_huong_dan' ]
+🔍 Using query() with params: [ 'dot_thuc_tap', 'so_sinh_vien_tham_gia' ]
+🔍 Using query() with params: [ 'dot_thuc_tap', 'so_giang_vien_huong_dan' ]
+🔍 Using query() with params: [ 'dot_thuc_tap', 'so_doanh_nghiep_tham_gia' ]
+🔍 Using query() with params: [ 'dot_thuc_tap', 'thoi_gian_dang_ky_tu' ]
+🔍 Using query() with params: [ 'dot_thuc_tap', 'thoi_gian_dang_ky_den' ]
+🔍 Using query() with params: [ 'dot_thuc_tap', 'khoa_hoc_ap_dung' ]
+🔍 Using query() with params: [ 'dot_thuc_tap', 'lop_ap_dung' ]
+🔍 Using query() with params: [ 'phan_cong_thuc_tap', 'diem_giang_vien' ]
+🔍 Using query() with params: [ 'phan_cong_thuc_tap', 'nhan_xet_giang_vien' ]
+🔍 Using query() with params: [ 'phan_cong_thuc_tap', 'ngay_nop_danh_gia' ]
+🔍 Using query() with params: [ 'dang_ky_thuc_tap_sinh_vien', 'workflow_status_v2' ]
+🔍 Using query() with params: [ 'dang_ky_thuc_tap_sinh_vien', 'interview_date' ]
+🔍 Using query() with params: [ 'dang_ky_thuc_tap_sinh_vien', 'interview_time' ]
+🔍 Using query() with params: [ 'dang_ky_thuc_tap_sinh_vien', 'interview_location' ]
+🔍 Using query() with params: [ 'dang_ky_thuc_tap_sinh_vien', 'interview_note' ]
+🔍 Using query() with params: [ 'dang_ky_thuc_tap_sinh_vien', 'interview_updated_at' ]
+🔍 Using query() with params: [ 'dang_ky_thuc_tap_sinh_vien', 'result_note' ]
+🔍 Using query() with params: [ 'giang_vien', 'ngay_sinh' ]
+🔍 Using query() with params: [ 'giang_vien', 'chuc_danh' ]
+🔍 Using query() with params: [ 'giang_vien', 'can_cuoc_cong_dan' ]
+🔍 Using query() without params
+🚀 Server đang chạy...
+📡 URL: http://localhost:3001
+🌍 Environment: development
+📚 API Documentation: http://localhost:3001/api/docs
+⚡ API Endpoints:
+   - Reports: http://localhost:3001/api/reports
+   - Health: http://localhost:3001/health
+───────────────────────────────────────
+🔍 Using query() without params
+📨 Zalo queue: bảng zalo_message_queue & deadline_reminders đã sẵn sàng.
+⚙️  Zalo worker: chạy mỗi 30 giây (3 tin/lần, delay 4s giữa các tin).
+⏰ Deadline reminder: chạy mỗi 10 phút (queue nhắc 24h trước hạn).
+🔍 Using query() without params
+🔍 Using query() with params: [ 'notifications', 'account_id' ]
+🔍 Using query() without params
+🔍 Using query() with params: [ 'notifications', 'receiver_id' ]
+🔍 Using query() with params: [ 'notifications', 'student_id' ]
+🔍 Using query() with params: [ 'notifications', 'account_id' ]
+🔍 Using query() with params: [ 'notifications', 'action_type' ]
+🔍 Using query() with params: [ 'notifications', 'created_at' ]
+🔍 Using query() with params: [ 'notifications', 'idx_account_id' ]
+🔍 Using query() with params: [ 'notifications', 'receiver_id' ]
+🔍 Using query() with params: [ 'notifications', 'student_id' ]
+🔍 Using query() with params: [ 'notifications', 'action_type' ]
+🔍 Using query() with params: [ 'notifications', 'created_at' ]
+🔍 Using query() with params: [ 'notifications', 'idx_account_id' ]
+🔍 Using query() with params: [ 'notifications', 'idx_receiver_id' ]
+🔍 Using query() with params: [ 'notifications', 'idx_student_id' ]
+🔍 Using query() with params: [ 'notifications', 'idx_is_read' ]
+🔍 Using query() with params: [ 'notifications', 'idx_receiver_id' ]
+🔍 Using query() with params: [ 'notifications', 'idx_created_at' ]
+🔍 Using query() with params: [ 'notifications', 'idx_student_id' ]
+🔍 Using query() without params
+🔍 Using query() with params: [ 'notifications', 'idx_is_read' ]
+🔍 Using query() with params: [ 'notifications', 'idx_created_at' ]
+🔍 Using query() without params
+🔍 Using query() without params
+🔍 Using query() without params
+🔍 Using query() with params: [ 1655, 1655 ]
+🔍 Using query() with params: [ 1, 1 ]
+🔍 Using query() with params: [ 1, 1 ]
+🔍 Using query() with params: [ 1655 ]
+[0mGET /api/notifications/me [32m200[0m 58.680 ms - 35[0m
+🔍 Using query() with params: [ 'Lê Trung Hiếu' ]
+🔍 Using query() with params: [ 1655, 1655 ]
+[0mGET /api/notifications/me [32m200[0m 47.070 ms - 35[0m
+[0mGET /health [32m200[0m 0.243 ms - 175[0m
+🔍 Using query() without params
+🔍 Using query() with params: [ 1, 1 ]
+🔍 Using query() with params: [ 1, 1 ]
+[0mGET /api/notifications/me [32m200[0m 11.094 ms - 35[0m
+🔍 Using query() without params
+🔍 Using query() without params
+🔍 Using query() with params: [ 1, 1 ]
+🔍 Using query() with params: [ 1, 1 ]
+[0mGET /api/notifications/me [32m200[0m 7.869 ms - 35[0m
+🔍 Using query() without params
+🔍 Using query() without params
+🔍 Using query() without params
+🔍 Using query() with params: [ 1, 1 ]
+🔍 Using query() with params: [ 1, 1 ]
+🔍 Using query() with params: [ 1655, 1655 ]
+[0mGET /api/notifications/me [32m200[0m 7.151 ms - 35[0m
+🔍 Using query() with params: [ 1655 ]
+🔍 Using query() with params: [ 'Lê Trung Hiếu' ]
+🔍 Using query() with params: [ 1655, 1655 ]
+[0mGET /api/notifications/me [32m200[0m 9.866 ms - 35[0m
+🔍 Using query() without params
+🔍 Using query() with params: [ 1, 1 ]
+🔍 Using query() with params: [ 1, 1 ]
+[0mGET /api/notifications/me [32m200[0m 34.938 ms - 35[0m
+🔍 Using query() without params
+🔍 Using query() without params
+🔍 Using query() without params
+🔍 Using query() with params: [ 1, 1 ]
+🔍 Using query() with params: [ 1, 1 ]
+[0mGET /api/notifications/me [32m200[0m 9.649 ms - 35[0m
+🔍 Using query() without params
+🔍 Using query() without params
+🔍 Using query() without params
+🔍 Using query() with params: [ 1, 1 ]
+🔍 Using query() with params: [ 1655, 1655 ]
+🔍 Using query() with params: [ 1, 1 ]
+🔍 Using query() with params: [ 1655 ]
+[0mGET /api/notifications/me [32m200[0m 16.340 ms - 35[0m
+🔍 Using query() with params: [ 'Lê Trung Hiếu' ]
+🔍 Using query() with params: [ 1655, 1655 ]
+[0mGET /api/notifications/me [32m200[0m 21.904 ms - 35[0m
+🔍 Using query() without params
+🔍 Using query() with params: [ 1, 1 ]
+🔍 Using query() with params: [ 1, 1 ]
+[0mGET /api/notifications/me [32m200[0m 8.909 ms - 35[0m
+🔍 Using query() without params
+🔍 Using query() without params
+🔍 Using query() with params: [ 1, 1 ]
+🔍 Using query() with params: [ 1, 1 ]
+[0mGET /api/notifications/me [32m200[0m 6.605 ms - 35[0m
+🔍 Using query() without params
+🔍 Using query() without params
+🔍 Using query() without params
+🔍 Using query() with params: [ 1, 1 ]
+🔍 Using query() with params: [ 1, 1 ]
+🔍 Using query() with params: [ 1655, 1655 ]
+[0mGET /api/notifications/me [32m200[0m 10.431 ms - 35[0m
+🔍 Using query() with params: [ 1655 ]
+🔍 Using query() with params: [ 'Lê Trung Hiếu' ]
+🔍 Using query() with params: [ 1655, 1655 ]
+[0mGET /api/notifications/me [32m200[0m 12.024 ms - 35[0m
+🔍 Using query() without params
+🔍 Using query() with params: [ 1, 1 ]
+🔍 Using query() with params: [ 1, 1 ]
+[0mGET /api/notifications/me [32m200[0m 5.902 ms - 35[0m
+🔍 Using query() without params
+🔍 Using query() without params
+🔍 Using query() with params: [ 1, 1 ]
+🔍 Using query() with params: [ 1, 1 ]
+[0mGET /api/notifications/me [32m200[0m 9.116 ms - 35[0m
+🔍 Using query() without params
+🔍 Using query() without params
+🔍 Using query() without params
+🔍 Using query() with params: [ 1, 1 ]
+🔍 Using query() with params: [ 1, 1 ]
+🔍 Using query() with params: [ 1655, 1655 ]
+[0mGET /api/notifications/me [32m200[0m 10.079 ms - 35[0m
+🔍 Using query() with params: [ 1655 ]
+🔍 Using query() with params: [ 'Lê Trung Hiếu' ]
+🔍 Using query() with params: [ 1655, 1655 ]
+[0mGET /api/notifications/me [32m200[0m 14.784 ms - 35[0m
+🔍 Using query() without params
+🔍 Using query() with params: [ 1, 1 ]
+🔍 Using query() with params: [ 1, 1 ]
+[0mGET /api/notifications/me [32m200[0m 8.484 ms - 35[0m
+🔍 Using query() without params
+🔍 Using query() without params
+🔍 Using query() with params: [ 1, 1 ]
+🔍 Using query() with params: [ 1, 1 ]
+[0mGET /api/notifications/me [32m200[0m 10.041 ms - 35[0m
+🔍 Using query() without params
+🔍 Using query() without params
+🔍 Using query() without params
+🔍 Using query() with params: [ 1655, 1655 ]
+🔍 Using query() with params: [ 1, 1 ]
+🔍 Using query() with params: [ 1655 ]
+🔍 Using query() with params: [ 1, 1 ]
+🔍 Using query() with params: [ 'Lê Trung Hiếu' ]
+[0mGET /api/notifications/me [32m200[0m 17.003 ms - 35[0m
+🔍 Using query() with params: [ 1655, 1655 ]
+[0mGET /api/notifications/me [32m200[0m 25.521 ms - 35[0m
+🔍 Using query() without params
+🔍 Using query() with params: [ 1, 1 ]
+🔍 Using query() with params: [ 1, 1 ]
+[0mGET /api/notifications/me [32m200[0m 7.801 ms - 35[0m
+🔍 Using query() without params
+🔍 Using query() without params
+🔍 Using query() with params: [ 1, 1 ]
+🔍 Using query() with params: [ 1, 1 ]
+[0mGET /api/notifications/me [32m200[0m 10.080 ms - 35[0m
+🔍 Using query() without params
+🔍 Using query() without params
+🔍 Using query() without params
+🔍 Using query() with params: [ 1655, 1655 ]
+🔍 Using query() with params: [ 1655 ]
+🔍 Using query() with params: [ 1, 1 ]
+🔍 Using query() with params: [ 'Lê Trung Hiếu' ]
+🔍 Using query() with params: [ 1, 1 ]
+[0mGET /api/notifications/me [32m200[0m 8.704 ms - 35[0m
+🔍 Using query() with params: [ 1655, 1655 ]
+[0mGET /api/notifications/me [32m200[0m 14.718 ms - 35[0m

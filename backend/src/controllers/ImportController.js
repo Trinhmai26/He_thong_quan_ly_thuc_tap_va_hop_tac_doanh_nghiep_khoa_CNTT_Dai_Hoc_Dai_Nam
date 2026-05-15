@@ -251,16 +251,21 @@ class ImportController {
             'Khoa': student.khoa
           }))
         };
-      } else if (accountType === 'giang-vien' && parseResult.giangViens) {
+      } else if (accountType === 'giang-vien' && (parseResult.giangViens || parseResult.data)) {
+        const gvList = parseResult.giangViens || parseResult.data || [];
         responseData = {
-          totalRows: parseResult.giangViens.length,
-          columns: ['Mã giảng viên', 'Họ tên', 'Email', 'Khoa', 'Bộ môn'],
-          sampleData: parseResult.giangViens.slice(0, 3).map(gv => ({
-            'Mã giảng viên': gv.maGiangVien,
-            'Họ tên': gv.hoTen,
+          totalRows: gvList.length,
+          columns: ['MÃ ĐỊNH DANH MỚI', 'HỌ VÀ TÊN', 'PHÒNG BAN', 'HỌC VỊ', 'Chức danh', 'Chức vụ', 'Số điện thoại', 'Căn cước công dân', 'Email', 'Chuyên môn đào tạo'],
+          sampleData: gvList.slice(0, 3).map((gv: any) => ({
+            'MÃ ĐỊNH DANH MỚI': gv.maGiangVien,
+            'HỌ VÀ TÊN': gv.hoTen,
+            'PHÒNG BAN': gv.khoa,
+            'HỌC VỊ': gv.hocVi,
+            'Chức danh': gv.chucDanh,
+            'Chức vụ': gv.chucVu,
+            'Số điện thoại': gv.soDienThoai,
             'Email': gv.email,
-            'Khoa': gv.khoa,
-            'Bộ môn': gv.boMon
+            'Chuyên môn đào tạo': gv.chuyenMon,
           }))
         };
       } else if (accountType === 'doanh-nghiep' && parseResult.doanhNghieps) {

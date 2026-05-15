@@ -5,7 +5,7 @@ class AuthController {
   // Đăng nhập chung (tự động detect loại tài khoản)
   static async login(req, res) {
     try {
-      const { userCode, password } = req.body;
+      const { userCode, password, role } = req.body;
 
       if (!userCode || !password) {
         return res.status(400).json({
@@ -16,63 +16,93 @@ class AuthController {
 
       let authResult = null;
       let userInfo = null;
+      const normalizedRole = typeof role === 'string' ? role.trim().toLowerCase() : null;
 
-      // Thử đăng nhập theo các loại tài khoản
-      // 1. Thử sinh viên (mã bắt đầu bằng SV)
-      if (userCode.toUpperCase().startsWith('SV')) {
+      const buildSinhVienUserInfo = (result) => ({
+        id: result.account.id,
+        userId: result.account.userId,
+        role: result.account.role,
+        maSinhVien: result.sinhVien.maSinhVien,
+        hoTen: result.sinhVien.hoTen
+      });
+
+      const buildGiangVienUserInfo = (result) => ({
+        id: result.account.id,
+        userId: result.account.userId,
+        role: result.account.role,
+        maGiangVien: result.giangVien.maGiangVien,
+        hoTen: result.giangVien.hoTen
+      });
+
+      const buildDoanhNghiepUserInfo = (result) => ({
+        id: result.account.id,
+        userId: result.account.userId,
+        role: result.account.role,
+        maDoanhNghiep: result.doanhNghiep.maDoanhNghiep,
+        tenDoanhNghiep: result.doanhNghiep.tenDoanhNghiep
+      });
+
+      const buildAdminUserInfo = (result) => ({
+        id: result.id,
+        userId: result.userId,
+        role: result.role
+      });
+
+      // Nếu người dùng đã chọn role cụ thể từ UI → chỉ xác thực đúng role đó, không fallback
+      if (normalizedRole === 'sinh-vien') {
         authResult = await Account.authenticateBySinhVien(userCode, password);
-        if (authResult) {
-          userInfo = {
-            id: authResult.account.id,
-            userId: authResult.account.userId,
-            role: authResult.account.role,
-            maSinhVien: authResult.sinhVien.maSinhVien,
-            hoTen: authResult.sinhVien.hoTen
-          };
-        }
-      }
-      // 2. Thử giảng viên (mã bắt đầu bằng GV)
-      else if (userCode.toUpperCase().startsWith('GV')) {
+        if (authResult) userInfo = buildSinhVienUserInfo(authResult);
+      } else if (normalizedRole === 'giang-vien') {
         authResult = await Account.authenticateByGiangVien(userCode, password);
-        if (authResult) {
-          userInfo = {
-            id: authResult.account.id,
-            userId: authResult.account.userId,
-            role: authResult.account.role,
-            maGiangVien: authResult.giangVien.maGiangVien,
-            hoTen: authResult.giangVien.hoTen
-          };
-        }
-      }
-      // 3. Thử doanh nghiệp (mã bắt đầu bằng DN)
-      else if (userCode.toUpperCase().startsWith('DN')) {
+        if (authResult) userInfo = buildGiangVienUserInfo(authResult);
+      } else if (normalizedRole === 'doanh-nghiep') {
         authResult = await Account.authenticateByDoanhNghiep(userCode, password);
-        if (authResult) {
-          userInfo = {
-            id: authResult.account.id,
-            userId: authResult.account.userId,
-            role: authResult.account.role,
-            maDoanhNghiep: authResult.doanhNghiep.maDoanhNghiep,
-            tenDoanhNghiep: authResult.doanhNghiep.tenDoanhNghiep
-          };
-        }
-      }
-      // 4. Thử admin (user_id trực tiếp)
-      else {
+        if (authResult) userInfo = buildDoanhNghiepUserInfo(authResult);
+      } else if (normalizedRole === 'admin') {
         authResult = await Account.authenticate(userCode, password, 'admin');
-        if (authResult) {
-          userInfo = {
-            id: authResult.id,
-            userId: authResult.userId,
-            role: authResult.role
-          };
+        if (authResult) userInfo = buildAdminUserInfo(authResult);
+      } else {
+        // Không chọn role → tự động nhận diện theo tiền tố mã
+        if (userCode.toUpperCase().startsWith('SV')) {
+          authResult = await Account.authenticateBySinhVien(userCode, password);
+          if (authResult) userInfo = buildSinhVienUserInfo(authResult);
+        } else if (userCode.toUpperCase().startsWith('GV')) {
+          authResult = await Account.authenticateByGiangVien(userCode, password);
+          if (authResult) userInfo = buildGiangVienUserInfo(authResult);
+        } else if (userCode.toUpperCase().startsWith('DN')) {
+          authResult = await Account.authenticateByDoanhNghiep(userCode, password);
+          if (authResult) userInfo = buildDoanhNghiepUserInfo(authResult);
+        }
+
+        if (!authResult) {
+          authResult = await Account.authenticateBySinhVien(userCode, password);
+          if (authResult) userInfo = buildSinhVienUserInfo(authResult);
+        }
+        if (!authResult) {
+          authResult = await Account.authenticateByGiangVien(userCode, password);
+          if (authResult) userInfo = buildGiangVienUserInfo(authResult);
+        }
+        if (!authResult) {
+          authResult = await Account.authenticateByDoanhNghiep(userCode, password);
+          if (authResult) userInfo = buildDoanhNghiepUserInfo(authResult);
+        }
+        if (!authResult) {
+          authResult = await Account.authenticate(userCode, password, 'admin');
+          if (authResult) userInfo = buildAdminUserInfo(authResult);
         }
       }
 
       if (!authResult) {
+        const roleLabel = normalizedRole === 'sinh-vien' ? 'sinh viên'
+          : normalizedRole === 'giang-vien' ? 'giảng viên'
+          : normalizedRole === 'doanh-nghiep' ? 'doanh nghiệp'
+          : normalizedRole === 'admin' ? 'quản trị viên'
+          : null;
         return res.status(401).json({
           success: false,
-          message: 'Mã đăng nhập hoặc mật khẩu không chính xác'
+          message: roleLabel
+            ? `Mã hoặc mật khẩu không đúng, hoặc tài khoản này không phải ${roleLabel}`
+            : 'Mã đăng nhập hoặc mật khẩu không chính xác'
         });
       }
 
@@ -80,7 +110,7 @@ class AuthController {
       const token = jwt.sign(
         userInfo,
         process.env.JWT_SECRET || 'default-secret',
-        { expiresIn: '24h' }
+        { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
       );
 
       res.json({
@@ -134,7 +164,7 @@ class AuthController {
       const token = jwt.sign(
         userInfo,
         process.env.JWT_SECRET || 'default-secret',
-        { expiresIn: '24h' }
+        { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
       );
 
       res.json({
@@ -204,7 +234,7 @@ class AuthController {
       const token = jwt.sign(
         userInfo,
         process.env.JWT_SECRET || 'default-secret',
-        { expiresIn: '24h' }
+        { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
       );
 
       res.json({

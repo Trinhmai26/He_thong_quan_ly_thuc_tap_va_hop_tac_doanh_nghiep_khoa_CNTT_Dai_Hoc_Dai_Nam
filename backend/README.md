@@ -190,6 +190,10 @@ backend/
 npm run dev          # Chạy với nodemon
 npm run start        # Chạy production
 
+# CV analyzer (Python)
+npm run cv-analyzer:install   # Cài dependencies Python cho module đọc CV
+npm run cv-analyzer:start     # Chạy service đọc CV tại cổng 5000
+
 # Database  
 npm run setup        # Thiết lập DB hoàn chỉnh
 npm run migrate      # Chỉ tạo bảng
@@ -200,6 +204,31 @@ npm run reset        # Reset và tạo lại DB
 npm run lint         # Kiểm tra code style
 npm run test         # Chạy unit tests
 ```
+
+## 🤖 Tích hợp đọc CV sinh viên
+
+Project đã tích hợp module đọc CV Python tại thư mục `backend/cv_analyzer`.
+
+### 1. Chạy dịch vụ đọc CV
+```bash
+cd backend
+npm run cv-analyzer:install
+npm run cv-analyzer:start
+```
+
+### 2. Cấu hình backend Node
+Trong `.env`:
+```env
+CV_ANALYZER_URL=http://127.0.0.1:5000/api/process-cv
+CV_ANALYZER_TIMEOUT_MS=180000
+```
+
+### 3. API đã tích hợp
+- `POST /api/sinh-vien/analyze-cv`
+  - Yêu cầu đăng nhập sinh viên (Bearer token).
+  - Tự động lấy `cv_path` đã upload của sinh viên hiện tại.
+  - Gọi Python service để OCR + trích xuất sections + gợi ý vị trí.
+
 
 ## 🚨 Xử lý lỗi
 

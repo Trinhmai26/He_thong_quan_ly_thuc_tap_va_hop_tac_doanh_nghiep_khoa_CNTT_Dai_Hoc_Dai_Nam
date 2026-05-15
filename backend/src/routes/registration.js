@@ -13,5 +13,6 @@ router.post('/period', authenticateToken, requireAdmin, RegistrationController.c
 router.get('/history', authenticateToken, requireAdmin, RegistrationController.getHistory);
 router.delete('/period/:id', authenticateToken, requireAdmin, RegistrationController.deletePeriod);
 router.put('/period/:id/status', authenticateToken, requireAdmin, RegistrationController.updateStatus);
+router.put('/period/:id/extend', authenticateToken, requireAdmin, RegistrationController.extendPeriod);
 
 module.exports = router;

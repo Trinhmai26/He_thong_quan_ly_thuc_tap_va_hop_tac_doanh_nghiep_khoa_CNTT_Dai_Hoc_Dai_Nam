@@ -38,9 +38,9 @@ class ImportController {
         });
       }
       
-      // Bước 2: Import vào database với auto-classification
-  // Chỉ cập nhật cột đang trống theo yêu cầu
-  const importResult = await ExcelImportService.importToDatabase('sinh-vien', parseResult.data, { fillEmptyOnly: true });
+        // Bước 2: Import vào database với auto-classification
+        // Đồng bộ dữ liệu theo file import (cập nhật các trường có giá trị, không chỉ ô trống).
+        const importResult = await ExcelImportService.importToDatabase('sinh-vien', parseResult.data, { fillEmptyOnly: false });
       
       // Bước 3: Tổng hợp kết quả
       const finalResult = {
@@ -126,7 +126,7 @@ class ImportController {
     }
   }
 
-  // POST /api/import/sinh-vien-profile - Import profile sinh viên (không tạo tài khoản)
+  // POST /api/import/sinh-vien-profile - Import profile sinh viên và đảm bảo có tài khoản đăng nhập
   static async importSinhVienProfile(req, res) {
     let filePath = null;
     
@@ -157,7 +157,7 @@ class ImportController {
         });
       }
       
-      // Bước 2: Chỉ cập nhật profile, không tạo tài khoản
+      // Bước 2: Import profile + tự tạo account sinh viên nếu còn thiếu
       const importResult = await ExcelImportService.importProfileOnly('sinh-vien', parseResult.data, { fillEmptyOnly: true });
       
       // Bước 3: Tổng hợp kết quả
@@ -173,13 +173,16 @@ class ImportController {
           errors: parseResult.errors
         },
         import: {
+          accountsCreated: importResult.accountsCreated || 0,
+          accountsLinked: importResult.accountsLinked || 0,
+          profilesCreated: importResult.profilesCreated || 0,
           profilesUpdated: importResult.profilesUpdated,
           profilesSkipped: importResult.profilesSkipped || 0,
           errors: importResult.errors
         },
         summary: {
           totalProcessed: parseResult.data.length,
-          totalSuccess: importResult.profilesUpdated,
+          totalSuccess: (importResult.profilesCreated || 0) + importResult.profilesUpdated,
           totalErrors: parseResult.errors.length + importResult.errors.length
         }
       };

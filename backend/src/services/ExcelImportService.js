@@ -93,8 +93,8 @@ class ExcelImportService {
     const headers = this.mapSinhVienHeaders(headerRow);
     
     // Kiểm tra các cột bắt buộc cho import tài khoản
-    if (!headers.maSinhVien || !headers.hoTen || !headers.email) {
-      throw new Error('File Excel thiếu các cột bắt buộc: Mã sinh viên, Họ tên, Email');
+    if (!headers.maSinhVien || !headers.hoTen) {
+      throw new Error('File Excel thiếu các cột bắt buộc: Mã sinh viên, Họ tên');
     }
     
     // Đọc dữ liệu từ hàng thứ 2 trở đi
@@ -109,21 +109,30 @@ class ExcelImportService {
           continue;
         }
         
+        const maSinhVien = this.getCellValue(row, headers.maSinhVien);
+        const fallbackEmail = this.buildStudentFallbackEmail(maSinhVien);
+
         const sinhVienData = {
-          maSinhVien: this.getCellValue(row, headers.maSinhVien),
+          maSinhVien,
           hoTen: this.getCellValue(row, headers.hoTen),
-          email: this.getCellValue(row, headers.email),
-          password: this.getCellValue(row, headers.matKhau) || this.getCellValue(row, headers.maSinhVien), // Mặc định password = mã sinh viên
+          email: this.getCellValue(row, headers.email) || fallbackEmail,
+          // Chỉ dùng mật khẩu từ file nếu có cột mật khẩu; mặc định mã SV sẽ áp dụng khi tạo account mới.
+          password: this.getCellValue(row, headers.matKhau),
           lop: this.getCellValue(row, headers.lop),
-          khoa: this.getCellValue(row, headers.khoa),
+          // Theo yêu cầu hệ thống: tất cả sinh viên thuộc khoa CNTT.
+          khoa: 'CNTT',
           nganh: this.getCellValue(row, headers.nganh),
           khoaHoc: this.getCellValue(row, headers.khoaHoc),
-          ngaySinh: this.getCellValue(row, headers.ngaySinh),
+          ngaySinh: this.getDateCellValue(row, headers.ngaySinh),
           gioiTinh: this.getCellValue(row, headers.gioiTinh),
           diaChi: this.getCellValue(row, headers.diaChi),
           soDienThoai: this.getCellValue(row, headers.soDienThoai),
-          emailCaNhan: this.getCellValue(row, headers.emailCaNhan),
+          emailCaNhan: this.getCellValue(row, headers.emailCaNhan) || fallbackEmail,
           gpa: this.getCellValue(row, headers.gpa),
+          soTCTichLuy: this.getCellValue(row, headers.soTCTichLuy),
+          soTCHT: this.getCellValue(row, headers.soTCHT),
+          namThu: this.getCellValue(row, headers.namThu),
+          hpNo: this.getCellValue(row, headers.hpNo),
           tinhTrangHocTap: this.getCellValue(row, headers.tinhTrangHocTap) || 'Đang học',
           viTriMuonUngTuyenThucTap: this.getCellValue(row, headers.viTriMuonUngTuyen),
           donViThucTap: this.getCellValue(row, headers.donViThucTap),
@@ -186,21 +195,29 @@ class ExcelImportService {
           continue;
         }
         
+        const maSinhVien = this.getCellValue(row, headers.maSinhVien);
+        const fallbackEmail = this.buildStudentFallbackEmail(maSinhVien);
+
         const sinhVienData = {
-          maSinhVien: this.getCellValue(row, headers.maSinhVien),
+          maSinhVien,
           hoTen: this.getCellValue(row, headers.hoTen),
-          email: this.getCellValue(row, headers.email),
-          password: this.getCellValue(row, headers.matKhau) || this.getCellValue(row, headers.maSinhVien), // Mặc định password = mã sinh viên
+          email: this.getCellValue(row, headers.email) || fallbackEmail,
+          password: this.getCellValue(row, headers.matKhau),
           lop: this.getCellValue(row, headers.lop),
-          khoa: this.getCellValue(row, headers.khoa),
+          // Theo yêu cầu hệ thống: tất cả sinh viên thuộc khoa CNTT.
+          khoa: 'CNTT',
           nganh: this.getCellValue(row, headers.nganh),
           khoaHoc: this.getCellValue(row, headers.khoaHoc),
-          ngaySinh: this.getCellValue(row, headers.ngaySinh),
+          ngaySinh: this.getDateCellValue(row, headers.ngaySinh),
           gioiTinh: this.getCellValue(row, headers.gioiTinh),
           diaChi: this.getCellValue(row, headers.diaChi),
           soDienThoai: this.getCellValue(row, headers.soDienThoai),
-          emailCaNhan: this.getCellValue(row, headers.emailCaNhan),
+          emailCaNhan: this.getCellValue(row, headers.emailCaNhan) || fallbackEmail,
           gpa: this.getCellValue(row, headers.gpa),
+          soTCTichLuy: this.getCellValue(row, headers.soTCTichLuy),
+          soTCHT: this.getCellValue(row, headers.soTCHT),
+          namThu: this.getCellValue(row, headers.namThu),
+          hpNo: this.getCellValue(row, headers.hpNo),
           tinhTrangHocTap: this.getCellValue(row, headers.tinhTrangHocTap) || 'Đang học',
           viTriMuonUngTuyenThucTap: this.getCellValue(row, headers.viTriMuonUngTuyen),
           donViThucTap: this.getCellValue(row, headers.donViThucTap),
@@ -233,8 +250,8 @@ class ExcelImportService {
     const headers = this.mapGiangVienHeaders(headerRow);
     
     // Kiểm tra các cột bắt buộc
-    if (!headers.maGiangVien || !headers.hoTen || !headers.email || !headers.khoa) {
-      throw new Error('File Excel thiếu các cột bắt buộc: Mã giảng viên, Họ tên, Email, Khoa');
+    if (!headers.maGiangVien || !headers.hoTen) {
+      throw new Error('File Excel thiếu các cột bắt buộc: Mã giảng viên (hoặc Mã định danh mới), Họ và tên');
     }
     
     // Đọc dữ liệu từ hàng thứ 2 trở đi
@@ -249,26 +266,43 @@ class ExcelImportService {
           continue;
         }
         
+        const maGiangVien = this.getCellValue(row, headers.maGiangVien);
+
+        // Bỏ qua hàng không có mã định danh
+        if (!maGiangVien) {
+          continue;
+        }
+
+        const rawEmail = this.getCellValue(row, headers.email);
+        const normalizedEmail = this.normalizeEmail(rawEmail);
+        const fallbackEmail = `${maGiangVien}@dainam.edu.vn`;
+        const finalEmail = (normalizedEmail && this.isValidEmail(normalizedEmail))
+          ? normalizedEmail
+          : fallbackEmail;
+
         const giangVienData = {
-          maGiangVien: this.getCellValue(row, headers.maGiangVien),
+          maGiangVien,
           hoTen: this.getCellValue(row, headers.hoTen),
-          email: this.getCellValue(row, headers.email),
-          password: this.getCellValue(row, headers.matKhau) || this.getCellValue(row, headers.maGiangVien), // Mặc định password = mã giảng viên
-          khoa: this.getCellValue(row, headers.khoa),
+          email: finalEmail,
+          emailCaNhan: normalizedEmail || fallbackEmail,
+          password: this.getCellValue(row, headers.matKhau) || maGiangVien,
+          khoa: this.getCellValue(row, headers.khoa) || 'Khoa Công nghệ thông tin',
           boMon: this.getCellValue(row, headers.boMon),
           chucVu: this.getCellValue(row, headers.chucVu),
+          chucDanh: this.getCellValue(row, headers.chucDanh),
           hocVi: this.getCellValue(row, headers.hocVi),
           chuyenMon: this.getCellValue(row, headers.chuyenMon),
           soDienThoai: this.getCellValue(row, headers.soDienThoai),
-          emailCaNhan: this.getCellValue(row, headers.emailCaNhan),
           diaChi: this.getCellValue(row, headers.diaChi),
           kinhNghiemLamViec: this.getCellValue(row, headers.kinhNghiemLamViec),
-          bangCap: this.getCellValue(row, headers.bangCap)
+          bangCap: this.getCellValue(row, headers.bangCap),
+          ngaySinh: this.getDateCellValue(row, headers.ngaySinh),
+          canCuocCongDan: this.getCellValue(row, headers.canCuocCongDan),
         };
-        
+
         // Validate dữ liệu
         this.validateGiangVienData(giangVienData, rowNumber);
-        
+
         giangViens.push(giangVienData);
         
       } catch (error) {
@@ -307,16 +341,20 @@ class ExcelImportService {
           continue;
         }
         
+        const normalizedEmail = this.normalizeEmail(this.getCellValue(row, headers.email));
+        const normalizedEmailCongTy = this.normalizeEmail(this.getCellValue(row, headers.emailCongTy));
+
         const doanhNghiepData = {
           maDoanhNghiep: this.getCellValue(row, headers.maDoanhNghiep),
           tenCongTy: this.getCellValue(row, headers.tenCongTy),
           tenNguoiLienHe: this.getCellValue(row, headers.tenNguoiLienHe),
-          email: this.getCellValue(row, headers.email),
+          // Fallback về email công ty nếu cột Email trống để giảm lỗi import không cần thiết.
+          email: normalizedEmail || normalizedEmailCongTy,
           password: this.getCellValue(row, headers.matKhau) || this.getCellValue(row, headers.maDoanhNghiep), // Mặc định password = mã doanh nghiệp
           chucVuNguoiLienHe: this.getCellValue(row, headers.chucVuNguoiLienHe),
           diaChiCongTy: this.getCellValue(row, headers.diaChiCongTy),
           soDienThoai: this.getCellValue(row, headers.soDienThoai),
-          emailCongTy: this.getCellValue(row, headers.emailCongTy),
+          emailCongTy: normalizedEmailCongTy || normalizedEmail,
           website: this.getCellValue(row, headers.website),
           linhVucHoatDong: this.getCellValue(row, headers.linhVucHoatDong),
           quyMoNhanSu: this.getCellValue(row, headers.quyMoNhanSu),
@@ -326,7 +364,7 @@ class ExcelImportService {
           soLuongNhanThucTap: parseInt(this.getCellValue(row, headers.soLuongNhanThucTap)) || 0,
           thoiGianThucTap: this.getCellValue(row, headers.thoiGianThucTap),
           diaChiThucTap: this.getCellValue(row, headers.diaChiThucTap),
-          trangThaiHopTac: this.getCellValue(row, headers.trangThaiHopTac) || 'Đang hợp tác'
+          trangThaiHopTac: this.normalizeCooperationStatus(this.getCellValue(row, headers.trangThaiHopTac))
         };
         
         // Validate dữ liệu
@@ -458,11 +496,20 @@ class ExcelImportService {
             accountId = existingAccount.id;
             results.accountsUpdated++;
           } else {
+            const defaultPassword = accountType === 'sinh-vien' ? userId : item.password;
+            // Fallback email để tránh lỗi NOT NULL
+            let accountEmail = item.email;
+            if (!accountEmail) {
+              if (accountType === 'sinh-vien') accountEmail = `${userId}@dnu.edu.vn`;
+              else if (accountType === 'giang-vien') accountEmail = `${userId}@dainam.edu.vn`;
+              else if (accountType === 'doanh-nghiep') accountEmail = `${userId}@doanhnghiep.vn`;
+              else accountEmail = `${userId}@dainam.edu.vn`;
+            }
             // Tạo account mới
             const accountResult = await Account.create({
               userId: userId,
-              email: item.email,
-              password: item.password,
+              email: accountEmail,
+              password: defaultPassword,
               role: accountType
             });
             accountId = accountResult.insertId;
@@ -488,12 +535,15 @@ class ExcelImportService {
     }
   }
 
-  // Import chỉ profile (không tạo tài khoản)
+  // Import profile sinh viên, đồng thời đảm bảo mỗi sinh viên có account đăng nhập
   static async importProfileOnly(accountType, data, options = {}) {
     try {
       console.log('ImportProfileOnly called with:', { accountType, dataCount: data.length });
       
       const results = {
+        accountsCreated: 0,
+        accountsLinked: 0,
+        profilesCreated: 0,
         profilesUpdated: 0,
         profilesSkipped: 0,
         errors: []
@@ -507,6 +557,21 @@ class ExcelImportService {
           
           // Chỉ xử lý sinh viên có mã sinh viên
           if (accountType === 'sinh-vien' && item.maSinhVien) {
+            // Đảm bảo account sinh viên tồn tại (mật khẩu mặc định = mã sinh viên)
+            const fallbackEmail = this.buildStudentFallbackEmail(item.maSinhVien);
+            let account = await Account.findByUserId(item.maSinhVien);
+
+            if (!account) {
+              const accountResult = await Account.create({
+                userId: item.maSinhVien,
+                email: item.email || item.emailCaNhan || fallbackEmail,
+                password: item.maSinhVien,
+                role: 'sinh-vien'
+              });
+              results.accountsCreated++;
+              account = { id: accountResult.insertId };
+            }
+
             // Tìm sinh viên theo mã sinh viên
             const existingSV = await SinhVien.findByMaSinhVien(item.maSinhVien);
             if (existingSV) {
@@ -515,10 +580,16 @@ class ExcelImportService {
               } else {
                 await SinhVien.updateByMaSinhVien(item.maSinhVien, item);
               }
+
+              if (!existingSV.account_id && account?.id) {
+                await SinhVien.attachAccountByMaSinhVien(item.maSinhVien, account.id);
+                results.accountsLinked++;
+              }
+
               results.profilesUpdated++;
             } else {
-              console.log(`Sinh viên ${item.maSinhVien} không tồn tại, bỏ qua`);
-              results.profilesSkipped++;
+              await SinhVien.create({ ...item, accountId: account?.id });
+              results.profilesCreated++;
             }
           } else {
             console.log('Bỏ qua dòng không có mã sinh viên');
@@ -579,10 +650,15 @@ class ExcelImportService {
         break;
         
       case 'doanh-nghiep':
-        const existingDN = await DoanhNghiep.findByAccountId(accountId);
+        const existingDN = await DoanhNghiep.findByMaDoanhNghiep(data.maDoanhNghiep);
         if (existingDN) {
-          await DoanhNghiep.updateByMaDoanhNghiep(data.maDoanhNghiep, data);
-          results.profilesUpdated++;
+          const updateResult = await DoanhNghiep.updateByMaDoanhNghiep(data.maDoanhNghiep, data);
+          if (updateResult && updateResult.success) {
+            results.profilesUpdated++;
+          } else {
+            await DoanhNghiep.create({ ...data, accountId });
+            results.profilesCreated++;
+          }
         } else {
           await DoanhNghiep.create({ ...data, accountId });
           results.profilesCreated++;
@@ -610,6 +686,10 @@ class ExcelImportService {
     
     headerRow.eachCell((cell, colNumber) => {
       const cellValue = cell.value ? cell.value.toString().toLowerCase().trim() : '';
+      const normalized = cellValue
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]/g, '');
       
       if (cellValue.includes('mã') && (cellValue.includes('sinh viên') || cellValue.includes('sv'))) {
         headers.maSinhVien = colNumber;
@@ -621,6 +701,14 @@ class ExcelImportService {
         headers.emailCaNhan = colNumber;
       } else if (cellValue.includes('mật khẩu') || cellValue.includes('password')) {
         headers.matKhau = colNumber;
+      } else if (normalized.includes('sotc') && (normalized.includes('tluy') || normalized.includes('tichluy'))) {
+        headers.soTCTichLuy = colNumber;
+      } else if (normalized.includes('sotc') && normalized.includes('ht')) {
+        headers.soTCHT = colNumber;
+      } else if (normalized.includes('namthu')) {
+        headers.namThu = colNumber;
+      } else if (normalized.includes('hpno')) {
+        headers.hpNo = colNumber;
       } else if (cellValue.includes('lớp') || cellValue.includes('class')) {
         headers.lop = colNumber;
       } else if (cellValue.includes('khoa') && !cellValue.includes('khóa')) {
@@ -637,9 +725,9 @@ class ExcelImportService {
         headers.diaChi = colNumber;
       } else if (cellValue.includes('điện thoại') || cellValue.includes('phone') || cellValue.includes('sdt')) {
         headers.soDienThoai = colNumber;
-      } else if (cellValue.includes('gpa') || cellValue.includes('điểm')) {
+      } else if (cellValue.includes('gpa') || cellValue.includes('điểm') || cellValue.includes('tbcht')) {
         headers.gpa = colNumber;
-      } else if (cellValue.includes('tình trạng') || cellValue.includes('trạng thái')) {
+      } else if (cellValue.includes('tình trạng') || cellValue.includes('trạng thái') || cellValue.includes('tt học') || cellValue.includes('tt hoc')) {
         headers.tinhTrangHocTap = colNumber;
       } else if (cellValue.includes('vị trí') && (cellValue.includes('ứng tuyển') || cellValue.includes('muốn') || cellValue.includes('thực tập'))) {
         headers.viTriMuonUngTuyen = colNumber;
@@ -647,7 +735,10 @@ class ExcelImportService {
       } else if (cellValue.includes('đơn vị') && cellValue.includes('thực tập')) {
         headers.donViThucTap = colNumber;
         console.log('🔍 Found đơn vị column at:', colNumber, 'with value:', cellValue);
-      } else if (cellValue.includes('nguyện vọng') && cellValue.includes('tt')) {
+      } else if (
+        cellValue.includes('nguyện vọng') &&
+        (cellValue.includes('tt') || cellValue.includes('thực tập'))
+      ) {
         headers.nguyenVongThucTap = colNumber;
         console.log('🔍 Found nguyện vọng column at:', colNumber, 'with value:', cellValue);
       } else if (cellValue.includes('giảng viên') && cellValue.includes('hướng dẫn')) {
@@ -662,13 +753,14 @@ class ExcelImportService {
   // Map headers cho giảng viên
   static mapGiangVienHeaders(headerRow) {
     const headers = {};
-    
+
     headerRow.eachCell((cell, colNumber) => {
       const cellValue = cell.value ? cell.value.toString().toLowerCase().trim() : '';
-      
-      if (cellValue.includes('mã') && cellValue.includes('giảng viên')) {
+
+      if ((cellValue.includes('mã') && cellValue.includes('giảng viên')) ||
+          (cellValue.includes('mã') && cellValue.includes('định danh'))) {
         headers.maGiangVien = colNumber;
-      } else if (cellValue.includes('tên') || cellValue.includes('họ tên')) {
+      } else if (cellValue === 'họ và tên' || cellValue === 'họ tên' || cellValue === 'tên') {
         headers.hoTen = colNumber;
       } else if (cellValue.includes('email') && !cellValue.includes('cá nhân')) {
         headers.email = colNumber;
@@ -676,10 +768,14 @@ class ExcelImportService {
         headers.emailCaNhan = colNumber;
       } else if (cellValue.includes('mật khẩu') || cellValue.includes('password')) {
         headers.matKhau = colNumber;
+      } else if (cellValue.includes('phòng ban') || cellValue.includes('phong ban')) {
+        headers.khoa = colNumber;
       } else if (cellValue.includes('khoa') && !cellValue.includes('khóa')) {
         headers.khoa = colNumber;
       } else if (cellValue.includes('bộ môn') || cellValue.includes('bo mon')) {
         headers.boMon = colNumber;
+      } else if (cellValue.includes('chức danh')) {
+        headers.chucDanh = colNumber;
       } else if (cellValue.includes('chức vụ') || cellValue.includes('position')) {
         headers.chucVu = colNumber;
       } else if (cellValue.includes('học vị') || cellValue.includes('degree')) {
@@ -688,6 +784,10 @@ class ExcelImportService {
         headers.chuyenMon = colNumber;
       } else if (cellValue.includes('điện thoại') || cellValue.includes('phone') || cellValue.includes('sdt')) {
         headers.soDienThoai = colNumber;
+      } else if (cellValue.includes('căn cước') || cellValue.includes('cccd') || cellValue.includes('cmnd')) {
+        headers.canCuocCongDan = colNumber;
+      } else if (cellValue.includes('ngày sinh') || cellValue.includes('sinh nhật')) {
+        headers.ngaySinh = colNumber;
       } else if (cellValue.includes('địa chỉ') || cellValue.includes('address')) {
         headers.diaChi = colNumber;
       } else if (cellValue.includes('kinh nghiệm') || cellValue.includes('experience')) {
@@ -696,7 +796,7 @@ class ExcelImportService {
         headers.bangCap = colNumber;
       }
     });
-    
+
     return headers;
   }
 
@@ -786,7 +886,11 @@ class ExcelImportService {
 
   // Helper method để check multiple patterns
   static matchesAny(text, patterns) {
-    return patterns.some(pattern => text.includes(pattern));
+    const normalizedText = (text || '').toLowerCase().replace(/[\s_-]+/g, '');
+    return patterns.some(pattern => {
+      const normalizedPattern = (pattern || '').toLowerCase().replace(/[\s_-]+/g, '');
+      return text.includes(pattern) || normalizedText.includes(normalizedPattern);
+    });
   }
 
   // Map headers cho admin
@@ -806,6 +910,14 @@ class ExcelImportService {
         headers.matKhau = colNumber;
       } else if (cellValue.includes('điện thoại') || cellValue.includes('phone') || cellValue.includes('sdt')) {
         headers.phone = colNumber;
+      } else if (cellValue.includes('số.tc') && (cellValue.includes('tlũy') || cellValue.includes('tích lũy') || cellValue.includes('tich luy'))) {
+        headers.soTCTichLuy = colNumber;
+      } else if (cellValue.includes('số.tc') && cellValue.includes('ht')) {
+        headers.soTCHT = colNumber;
+      } else if (cellValue.includes('năm thứ') || cellValue.includes('nam thu')) {
+        headers.namThu = colNumber;
+      } else if (cellValue.includes('hp nợ') || cellValue.includes('hp no')) {
+        headers.hpNo = colNumber;
       } else if (cellValue.includes('chức vụ') || cellValue.includes('position')) {
         headers.position = colNumber;
       }
@@ -842,16 +954,10 @@ class ExcelImportService {
   // Validate dữ liệu giảng viên
   static validateGiangVienData(data, rowNumber) {
     if (!data.maGiangVien) {
-      throw new Error(`Hàng ${rowNumber}: Thiếu mã giảng viên`);
+      throw new Error(`Hàng ${rowNumber}: Thiếu mã giảng viên / mã định danh`);
     }
     if (!data.hoTen) {
-      throw new Error(`Hàng ${rowNumber}: Thiếu họ tên`);
-    }
-    if (!data.email) {
-      throw new Error(`Hàng ${rowNumber}: Thiếu email`);
-    }
-    if (!data.khoa) {
-      throw new Error(`Hàng ${rowNumber}: Thiếu thông tin khoa`);
+      throw new Error(`Hàng ${rowNumber}: Thiếu họ và tên`);
     }
     if (data.email && !this.isValidEmail(data.email)) {
       throw new Error(`Hàng ${rowNumber}: Email không hợp lệ`);
@@ -881,6 +987,44 @@ class ExcelImportService {
     if (data.email && !this.isValidEmail(data.email)) {
       throw new Error(`Hàng ${rowNumber}: Email không hợp lệ`);
     }
+
+    const validStatuses = ['Đang hợp tác', 'Tạm dừng', 'Ngừng hợp tác'];
+    if (data.trangThaiHopTac && !validStatuses.includes(data.trangThaiHopTac)) {
+      throw new Error(`Hàng ${rowNumber}: Trạng thái hợp tác không hợp lệ (${data.trangThaiHopTac})`);
+    }
+  }
+
+  static normalizeCooperationStatus(rawStatus) {
+    const value = String(rawStatus || '').trim();
+    if (!value) return 'Đang hợp tác';
+
+    const normalized = value
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (
+      ['dang hop tac', 'hoat dong', 'active', 'dang-hop-tac', 'hop tac'].includes(normalized)
+    ) {
+      return 'Đang hợp tác';
+    }
+
+    if (
+      ['tam dung', 'tam ngung', 'pause', 'paused', 'inactive', 'tam-dung', 'tam-ngung'].includes(normalized)
+    ) {
+      return 'Tạm dừng';
+    }
+
+    if (
+      ['ngung hop tac', 'ket thuc hop tac', 'stop', 'stopped', 'terminated', 'ngung-hop-tac'].includes(normalized)
+    ) {
+      return 'Ngừng hợp tác';
+    }
+
+    // Fallback safe value for unknown spreadsheet inputs.
+    return 'Đang hợp tác';
   }
 
   // Validate dữ liệu admin
@@ -911,11 +1055,20 @@ class ExcelImportService {
       // Xử lý các kiểu dữ liệu khác nhau
       let value = cell.value;
       
-      // Nếu là object (có thể là date hoặc formula)
+      // Nếu là object (có thể là date, formula, hyperlink hoặc rich text)
       if (typeof value === 'object') {
         if (value.result !== undefined) {
           // Formula result
           value = value.result;
+        } else if (typeof value.text === 'string') {
+          value = value.text;
+        } else if (typeof value.hyperlink === 'string') {
+          const hyperlink = value.hyperlink.trim();
+          value = hyperlink.toLowerCase().startsWith('mailto:')
+            ? hyperlink.slice(7)
+            : hyperlink;
+        } else if (Array.isArray(value.richText)) {
+          value = value.richText.map((part) => part?.text || '').join('');
         } else if (value instanceof Date) {
           // Date object
           value = value.toISOString().split('T')[0]; // Format YYYY-MM-DD
@@ -937,6 +1090,65 @@ class ExcelImportService {
     }
   }
 
+  static getDateCellValue(row, columnNumber) {
+    if (!columnNumber) return null;
+
+    try {
+      const cell = row.getCell(columnNumber);
+      if (!cell.value) return null;
+
+      const value = cell.value;
+
+      if (value instanceof Date) {
+        return value.toISOString().split('T')[0];
+      }
+
+      if (typeof value === 'number') {
+        const excelEpoch = Date.UTC(1899, 11, 30);
+        const dateValue = new Date(excelEpoch + Math.round(value * 86400 * 1000));
+        if (!Number.isNaN(dateValue.getTime())) {
+          return dateValue.toISOString().split('T')[0];
+        }
+      }
+
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (!trimmed) return null;
+
+        // Hỗ trợ định dạng Việt Nam: dd/mm/yyyy hoặc dd-mm-yyyy
+        const vnDateMatch = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+        if (vnDateMatch) {
+          const day = vnDateMatch[1].padStart(2, '0');
+          const month = vnDateMatch[2].padStart(2, '0');
+          const year = vnDateMatch[3];
+
+          const normalized = `${year}-${month}-${day}`;
+          const check = new Date(`${normalized}T00:00:00Z`);
+          if (!Number.isNaN(check.getTime())) {
+            return normalized;
+          }
+        }
+
+        const parsed = new Date(trimmed);
+        if (!Number.isNaN(parsed.getTime())) {
+          return parsed.toISOString().split('T')[0];
+        }
+
+        return trimmed;
+      }
+
+      return this.getCellValue(row, columnNumber);
+    } catch (error) {
+      return this.getCellValue(row, columnNumber);
+    }
+  }
+
+  static buildStudentFallbackEmail(maSinhVien) {
+    const id = String(maSinhVien || '').trim();
+    if (!id) return null;
+    return `${id}@dnu.edu.vn`;
+  }
+
   static isEmptyRow(row) {
     let isEmpty = true;
     
@@ -956,8 +1168,40 @@ class ExcelImportService {
   }
 
   static isValidEmail(email) {
+    const normalizedEmail = this.normalizeEmail(email);
+    if (!normalizedEmail) return false;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+    return emailRegex.test(normalizedEmail);
+  }
+
+  static normalizeEmail(email) {
+    if (email === undefined || email === null) return null;
+
+    let value = String(email)
+      .replace(/\u00A0/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!value) return null;
+
+    // Xử lý các giá trị dạng hyperlink hoặc object-string từ Excel.
+    if (value.toLowerCase().startsWith('mailto:')) {
+      value = value.slice(7);
+    }
+
+    // Nếu ô chứa nhiều email, lấy email đầu tiên.
+    value = value.split(/[;,\n]/)[0].trim();
+
+    // Chuẩn hóa ký tự phổ biến nhập sai từ Excel.
+    value = value
+      .replace(/[\uFF20]/g, '@')
+      .replace(/[\u3002\uFF0E]/g, '.')
+      .replace(/\s*@\s*/g, '@')
+      .replace(/\s*\.\s*/g, '.')
+      .replace(/[.,;]+$/g, '')
+      .toLowerCase();
+
+    return value || null;
   }
 
   // Parse file Excel từ Google Form

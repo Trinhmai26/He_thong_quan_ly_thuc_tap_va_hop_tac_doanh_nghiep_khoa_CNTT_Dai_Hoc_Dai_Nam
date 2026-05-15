@@ -152,51 +152,42 @@ class Admin {
     // Cập nhật admin theo account_id
     static async updateByAccountId(accountId, updateData) {
         try {
-            // Build dynamic SQL update query
-            const fields = [];
-            const values = [];
-            
+            // Build dynamic SQL update query - map frontend field names to DB column names
+            const adminFields = [];
+            const adminValues = [];
+
             if (updateData.ho_ten !== undefined) {
-                fields.push('ho_ten = ?');
-                values.push(updateData.ho_ten);
-            }
-            if (updateData.email !== undefined) {
-                fields.push('email = ?');
-                values.push(updateData.email);
+                adminFields.push('full_name = ?');
+                adminValues.push(updateData.ho_ten);
             }
             if (updateData.so_dien_thoai !== undefined) {
-                fields.push('so_dien_thoai = ?');
-                values.push(updateData.so_dien_thoai);
-            }
-            if (updateData.dia_chi !== undefined) {
-                fields.push('dia_chi = ?');
-                values.push(updateData.dia_chi);
+                adminFields.push('phone = ?');
+                adminValues.push(updateData.so_dien_thoai);
             }
             if (updateData.chuc_vu !== undefined) {
-                fields.push('chuc_vu = ?');
-                values.push(updateData.chuc_vu);
+                adminFields.push('position = ?');
+                adminValues.push(updateData.chuc_vu);
             }
-            if (updateData.phong_ban !== undefined) {
-                fields.push('phong_ban = ?');
-                values.push(updateData.phong_ban);
-            }
-
-            if (fields.length === 0) {
-                return {
-                    success: false,
-                    message: 'Không có dữ liệu để cập nhật'
-                };
+            if (updateData.dia_chi !== undefined) {
+                adminFields.push('dia_chi = ?');
+                adminValues.push(updateData.dia_chi);
             }
 
-            values.push(accountId);
-            const query = `UPDATE admin SET ${fields.join(', ')} WHERE account_id = ?`;
-            
-            const result = await db.query(query, values);
-            
+            // Update admin table
+            if (adminFields.length > 0) {
+                adminFields.push('updated_at = NOW()');
+                const adminQuery = `UPDATE admin SET ${adminFields.join(', ')} WHERE account_id = ?`;
+                await db.query(adminQuery, [...adminValues, accountId]);
+            }
+
+            // Update email in accounts table separately
+            if (updateData.email !== undefined) {
+                await db.query('UPDATE accounts SET email = ?, updated_at = NOW() WHERE id = ?', [updateData.email, accountId]);
+            }
+
             return {
-                success: result.affectedRows > 0,
-                message: result.affectedRows > 0 ? 'Cập nhật thành công' : 'Không tìm thấy admin',
-                data: result
+                success: true,
+                message: 'Cập nhật thành công'
             };
         } catch (error) {
             console.error('Error updating admin by account id:', error);

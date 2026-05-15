@@ -7,6 +7,7 @@ const SinhVien = require('../models/SinhVien');
 const GiangVien = require('../models/GiangVien');
 const DoanhNghiep = require('../models/DoanhNghiep');
 const db = require('../database/connection');
+const { createNotification, ensureNotificationsTable } = require('../utils/notificationHelper');
 
 class AutoAssignmentController {
   
@@ -125,6 +126,17 @@ class AutoAssignmentController {
           
           console.log(`  ✅ SV ${student.ma_sinh_vien} → GV ${selectedTeacher.ma} (${selectedTeacher.ten}) - Tổng: ${teacherStudentCount[selectedTeacher.ma]}`);
           
+          // Gửi thông báo cho sinh viên
+          if (student.id && student.account_id) {
+            await createNotification(
+              student.account_id,
+              'Đã phân công giảng viên hướng dẫn',
+              `Bạn đã được phân công giảng viên hướng dẫn: ${selectedTeacher.ten}.`,
+              'success',
+              'assignment'
+            ).catch(err => console.error(`  ⚠️ Lỗi gửi thông báo cho SV ${student.ma_sinh_vien}:`, err.message));
+          }
+          
         } catch (error) {
           console.error(`  ❌ Lỗi phân công GV cho SV ${student.ma_sinh_vien}:`, error.message);
           results.teachers.errors.push({
@@ -227,6 +239,17 @@ class AutoAssignmentController {
           results.companies.assigned++;
           
           console.log(`  ✅ SV ${student.ma_sinh_vien} (${viTriMongMuon || 'không rõ vị trí'}) → DN ${selectedCompany.name} (${selectedCompany.currentStudents}/${selectedCompany.maxStudents || '∞'})`);
+          
+          // Gửi thông báo cho sinh viên
+          if (student.id && student.account_id) {
+            await createNotification(
+              student.account_id,
+              'Đã phân công doanh nghiệp thực tập',
+              `Bạn đã được phân công thực tập tại ${selectedCompany.name}.`,
+              'success',
+              'assignment'
+            ).catch(err => console.error(`  ⚠️ Lỗi gửi thông báo cho SV ${student.ma_sinh_vien}:`, err.message));
+          }
           
         } catch (error) {
           console.error(`  ❌ Lỗi phân công DN cho SV ${student.ma_sinh_vien}:`, error.message);

@@ -27,7 +27,7 @@ router.put('/me', [
     .withMessage('Họ tên phải từ 2-255 ký tự'),
   
   body('email')
-    .optional()
+    .optional({ checkFalsy: true })
     .isEmail()
     .withMessage('Email không hợp lệ')
     .normalizeEmail(),
@@ -101,7 +101,7 @@ router.put('/me', [
     .withMessage('Số điện thoại công ty phải từ 10-11 chữ số'),
   
   body('email_cong_ty')
-    .optional()
+    .optional({ checkFalsy: true })
     .isEmail()
     .withMessage('Email công ty không hợp lệ')
     .normalizeEmail(),

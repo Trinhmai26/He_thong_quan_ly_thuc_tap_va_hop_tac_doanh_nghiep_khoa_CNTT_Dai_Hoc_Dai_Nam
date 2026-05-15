@@ -1,4 +1,5 @@
 const connection = require('../database/connection');
+const { createNotification, ensureNotificationsTable } = require('../utils/notificationHelper');
 
 class AssignmentsController {
   
@@ -158,6 +159,13 @@ class AssignmentsController {
         ngay_bat_dau, ngay_ket_thuc, trang_thai
       ]);
       
+      // Gửi thông báo
+      await notifyAssignment({
+        studentId: sinh_vien_id,
+        teacherId: giang_vien_id || null,
+        companyId: doanh_nghiep_id
+      });
+      
       res.status(201).json({
         success: true,
         message: 'Tạo phân công thực tập thành công',
@@ -311,6 +319,61 @@ class AssignmentsController {
         message: 'Lỗi khi đăng ký thực tập'
       });
     }
+  }
+}
+
+// Helper function để gửi thông báo khi phân công
+async function notifyAssignment({ studentId, teacherId, companyId }) {
+  try {
+    await ensureNotificationsTable();
+
+    // Lấy thông tin sinh viên
+    const [student] = await connection.query(
+      'SELECT account_id, ho_ten, ma_sinh_vien FROM sinh_vien WHERE id = ? LIMIT 1',
+      [studentId]
+    );
+
+    if (!student || !student.account_id) return;
+
+    // Lấy thông tin công ty
+    let companyName = 'Công ty';
+    if (companyId) {
+      const [company] = await connection.query(
+        'SELECT ten_cong_ty FROM doanh_nghiep WHERE id = ? LIMIT 1',
+        [companyId]
+      );
+      if (company) companyName = company.ten_cong_ty;
+    }
+
+    // Gửi thông báo cho sinh viên
+    await createNotification(
+      student.account_id,
+      'Đã được phân công thực tập',
+      `Bạn đã được phân công thực tập tại ${companyName}.`,
+      'success',
+      'assignment'
+    );
+
+    // Nếu có giảng viên, gửi thông báo cho giảng viên
+    if (teacherId) {
+      const [teacher] = await connection.query(
+        'SELECT account_id, ho_ten FROM giang_vien WHERE id = ? LIMIT 1',
+        [teacherId]
+      );
+
+      if (teacher && teacher.account_id) {
+        const studentName = student.ho_ten || `Sinh viên ${student.ma_sinh_vien}`;
+        await createNotification(
+          teacher.account_id,
+          'Có sinh viên được phân công',
+          `Bạn được hướng dẫn ${studentName} thực tập tại ${companyName}.`,
+          'info',
+          'assignment'
+        );
+      }
+    }
+  } catch (error) {
+    console.error('[notifyAssignment] Lỗi gửi thông báo:', error);
   }
 }
 

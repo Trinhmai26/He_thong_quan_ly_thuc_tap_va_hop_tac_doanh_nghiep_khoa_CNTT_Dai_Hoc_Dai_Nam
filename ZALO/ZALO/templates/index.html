@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Zalo Group Sender</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <h1>Zalo Group Sender</h1>
+        <p id="healthText" class="muted">Dang kiem tra ket noi...</p>
+      </div>
+      <button id="refreshGroups" class="secondary" type="button">Refresh</button>
+    </header>
+
+    {% if api_key_required %}
+    <section class="notice">
+      API key dang bat. Giao dien web se khong goi duoc API neu trinh duyet khong gui header <code>X-API-Key</code>.
+    </section>
+    {% endif %}
+
+    <section class="workspace">
+      <aside class="groups-pane">
+        <div class="toolbar">
+          <label for="groupSearch">Tim nhom</label>
+          <input id="groupSearch" type="search" autocomplete="off" placeholder="Ten nhom hoac ID">
+        </div>
+        <div id="groupsStatus" class="status">Dang tai danh sach nhom...</div>
+        <div id="groupsList" class="groups-list" aria-live="polite"></div>
+      </aside>
+
+      <section class="composer-pane">
+        <form id="messageForm" class="composer">
+          <div class="selected-group">
+            <span class="muted">Nhom dang chon</span>
+            <strong id="selectedGroupName">Chua chon nhom</strong>
+            <span id="selectedGroupId" class="group-id"></span>
+          </div>
+
+          <label for="messageText">Noi dung tin nhan</label>
+          <textarea id="messageText" name="message" rows="10" maxlength="2000" placeholder="Nhap noi dung can gui"></textarea>
+
+          <div class="message-options">
+            <label for="markMessage">Danh dau</label>
+            <select id="markMessage" name="mark_message">
+              <option value="">Binh thuong</option>
+              <option value="important">Important</option>
+              <option value="urgent">Urgent</option>
+            </select>
+
+            <label for="ttl">TTL</label>
+            <input id="ttl" name="ttl" type="number" min="0" step="1" value="0">
+          </div>
+
+          <div class="actions">
+            <span id="charCount" class="muted">0/2000</span>
+            <button id="sendButton" type="submit" disabled>Gui tin</button>
+          </div>
+        </form>
+
+        <div id="resultBox" class="result" aria-live="polite"></div>
+      </section>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

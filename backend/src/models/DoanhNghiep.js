@@ -200,11 +200,11 @@ class DoanhNghiep {
             FROM doanh_nghiep dn 
             JOIN accounts acc ON dn.account_id = acc.id 
             LEFT JOIN (
-                SELECT doanh_nghiep_thuc_tap, COUNT(*) as so_sinh_vien_thuc_tap
-                FROM sinh_vien_huong_dan 
-                WHERE doanh_nghiep_thuc_tap IS NOT NULL AND doanh_nghiep_thuc_tap != ''
-                GROUP BY doanh_nghiep_thuc_tap
-            ) sv_count ON dn.ten_cong_ty = sv_count.doanh_nghiep_thuc_tap
+                SELECT doanh_nghiep_id, COUNT(DISTINCT sinh_vien_id) as so_sinh_vien_thuc_tap
+                FROM phan_cong_thuc_tap
+                WHERE doanh_nghiep_id IS NOT NULL
+                GROUP BY doanh_nghiep_id
+            ) sv_count ON dn.id = sv_count.doanh_nghiep_id
             WHERE 1=1
         `;
         let countQuery = `
@@ -271,9 +271,16 @@ class DoanhNghiep {
     static async search(keyword, page = 1, limit = 20) {
         const offset = (page - 1) * limit;
         const query = `
-            SELECT dn.*, acc.user_id, acc.email, acc.is_active 
+            SELECT dn.*, acc.user_id, acc.email, acc.is_active,
+                   COALESCE(sv_count.so_sinh_vien_thuc_tap, 0) as so_sinh_vien_thuc_tap
             FROM doanh_nghiep dn 
             JOIN accounts acc ON dn.account_id = acc.id 
+            LEFT JOIN (
+                SELECT doanh_nghiep_id, COUNT(DISTINCT sinh_vien_id) as so_sinh_vien_thuc_tap
+                FROM phan_cong_thuc_tap
+                WHERE doanh_nghiep_id IS NOT NULL
+                GROUP BY doanh_nghiep_id
+            ) sv_count ON dn.id = sv_count.doanh_nghiep_id
             WHERE (dn.ma_doanh_nghiep LIKE ? OR dn.ten_cong_ty LIKE ? OR dn.ten_nguoi_lien_he LIKE ? OR dn.linh_vuc_hoat_dong LIKE ?)
             ORDER BY dn.created_at DESC 
             LIMIT ? OFFSET ?
@@ -298,7 +305,8 @@ class DoanhNghiep {
                 ...new DoanhNghiep(row),
                 userId: row.user_id,
                 email: row.email,
-                isActive: row.is_active
+                isActive: row.is_active,
+                soSinhVienThucTap: row.so_sinh_vien_thuc_tap || 0
             }));
 
             return {

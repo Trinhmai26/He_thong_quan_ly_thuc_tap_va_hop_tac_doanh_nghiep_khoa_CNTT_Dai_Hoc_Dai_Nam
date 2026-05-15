@@ -153,11 +153,15 @@ class SinhVienHuongDan {
    */
   static async updateAllTeacherCounts() {
     const query = `
-      UPDATE giang_vien gv 
-      SET so_sinh_vien_huong_dan = (
-        SELECT COUNT(*) FROM sinh_vien_huong_dan svhd 
-        WHERE svhd.ma_giang_vien = gv.ma_giang_vien
-      )
+      UPDATE giang_vien gv
+      LEFT JOIN (
+        SELECT LOWER(TRIM(giang_vien_huong_dan)) AS ten_gv, COUNT(*) AS total
+        FROM sinh_vien
+        WHERE COALESCE(TRIM(giang_vien_huong_dan), '') <> ''
+        GROUP BY LOWER(TRIM(giang_vien_huong_dan))
+      ) sv ON sv.ten_gv = LOWER(TRIM(gv.ho_ten))
+      SET gv.so_sinh_vien_huong_dan = COALESCE(sv.total, 0),
+          gv.updated_at = NOW()
     `;
     
     console.log('🔍 SinhVienHuongDan.updateAllTeacherCounts()');

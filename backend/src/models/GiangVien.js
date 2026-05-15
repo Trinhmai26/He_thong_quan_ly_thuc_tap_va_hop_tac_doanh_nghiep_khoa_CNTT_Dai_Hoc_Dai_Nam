@@ -19,6 +19,9 @@ class GiangVien {
         this.diaChi = data.dia_chi;
         this.kinhNghiemLamViec = data.kinh_nghiem_lam_viec;
         this.bangCap = data.bang_cap;
+        this.ngaySinh = data.ngay_sinh;
+        this.chucDanh = data.chuc_danh;
+        this.canCuocCongDan = data.can_cuoc_cong_dan;
         this.createdAt = data.created_at;
         this.updatedAt = data.updated_at;
     }
@@ -38,26 +41,32 @@ class GiangVien {
             emailCaNhan = null,
             diaChi = null,
             kinhNghiemLamViec = null,
-            bangCap = null
+            bangCap = null,
+            ngaySinh = null,
+            chucDanh = null,
+            canCuocCongDan = null
         } = giangVienData;
 
         const query = `
-            INSERT INTO giang_vien 
-            (account_id, ma_giang_vien, ho_ten, khoa, bo_mon, chuc_vu, hoc_vi, 
-             chuyen_mon, so_dien_thoai, email_ca_nhan, dia_chi, kinh_nghiem_lam_viec, bang_cap) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO giang_vien
+            (account_id, ma_giang_vien, ho_ten, khoa, bo_mon, chuc_vu, hoc_vi,
+             chuyen_mon, so_dien_thoai, email_ca_nhan, dia_chi, kinh_nghiem_lam_viec, bang_cap,
+             ngay_sinh, chuc_danh, can_cuoc_cong_dan)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         console.log('🔍 GiangVien.create - Executing query:', query);
         console.log('🔍 GiangVien.create - Parameters:', [
             accountId, maGiangVien, hoTen, khoa, boMon, chucVu, hocVi,
-            chuyenMon, soDienThoai, emailCaNhan, diaChi, kinhNghiemLamViec, bangCap
+            chuyenMon, soDienThoai, emailCaNhan, diaChi, kinhNghiemLamViec, bangCap,
+            ngaySinh, chucDanh, canCuocCongDan
         ]);
 
         try {
             const result = await db.query(query, [
                 accountId, maGiangVien, hoTen, khoa, boMon, chucVu, hocVi,
-                chuyenMon, soDienThoai, emailCaNhan, diaChi, kinhNghiemLamViec, bangCap
+                chuyenMon, soDienThoai, emailCaNhan, diaChi, kinhNghiemLamViec, bangCap,
+                ngaySinh, chucDanh, canCuocCongDan
             ]);
 
             console.log('✅ GiangVien.create - Database result:', JSON.stringify(result, null, 2));
@@ -150,7 +159,8 @@ class GiangVien {
         // Các trường có thể cập nhật
         const allowedFields = [
             'ho_ten', 'khoa', 'bo_mon', 'chuc_vu', 'hoc_vi', 'chuyen_mon',
-            'so_dien_thoai', 'email_ca_nhan', 'dia_chi', 'kinh_nghiem_lam_viec', 'bang_cap'
+            'so_dien_thoai', 'email_ca_nhan', 'dia_chi', 'kinh_nghiem_lam_viec', 'bang_cap',
+            'ngay_sinh', 'chuc_danh', 'can_cuoc_cong_dan'
         ];
 
         allowedFields.forEach(field => {
@@ -186,7 +196,12 @@ class GiangVien {
         const offset = (page - 1) * limit;
         let query = `
             SELECT gv.*, acc.user_id, acc.email, acc.is_active,
-                   COALESCE(gv.so_sinh_vien_huong_dan, 0) as so_sinh_vien_huong_dan
+                                     (
+                                         SELECT COUNT(*)
+                                         FROM sinh_vien sv
+                                         WHERE COALESCE(TRIM(sv.giang_vien_huong_dan), '') <> ''
+                                             AND LOWER(TRIM(sv.giang_vien_huong_dan)) = LOWER(TRIM(gv.ho_ten))
+                                     ) as so_sinh_vien_huong_dan
             FROM giang_vien gv 
             JOIN accounts acc ON gv.account_id = acc.id 
             WHERE 1=1
@@ -258,7 +273,12 @@ class GiangVien {
         const offset = (page - 1) * limit;
         const query = `
             SELECT gv.*, acc.user_id, acc.email, acc.is_active,
-                   COALESCE(gv.so_sinh_vien_huong_dan, 0) as so_sinh_vien_huong_dan
+                                     (
+                                         SELECT COUNT(*)
+                                         FROM sinh_vien sv
+                                         WHERE COALESCE(TRIM(sv.giang_vien_huong_dan), '') <> ''
+                                             AND LOWER(TRIM(sv.giang_vien_huong_dan)) = LOWER(TRIM(gv.ho_ten))
+                                     ) as so_sinh_vien_huong_dan
             FROM giang_vien gv 
             JOIN accounts acc ON gv.account_id = acc.id 
             WHERE (gv.ma_giang_vien LIKE ? OR gv.ho_ten LIKE ? OR gv.khoa LIKE ? OR gv.bo_mon LIKE ?)
@@ -343,6 +363,18 @@ class GiangVien {
             if (updateData.chuyen_mon !== undefined) {
                 fields.push('chuyen_mon = ?');
                 values.push(updateData.chuyen_mon);
+            }
+            if (updateData.ngay_sinh !== undefined) {
+                fields.push('ngay_sinh = ?');
+                values.push(updateData.ngay_sinh);
+            }
+            if (updateData.chuc_danh !== undefined) {
+                fields.push('chuc_danh = ?');
+                values.push(updateData.chuc_danh);
+            }
+            if (updateData.can_cuoc_cong_dan !== undefined) {
+                fields.push('can_cuoc_cong_dan = ?');
+                values.push(updateData.can_cuoc_cong_dan);
             }
 
             if (fields.length === 0) {

@@ -227,6 +227,10 @@ router.put('/company-registrations/:registrationId/reject', AdminController.reje
  */
 router.get('/student-registrations/overview', AdminController.getStudentRegistrationsOverview);
 
+router.put('/student-registrations/:registrationId/approve', AdminController.approveStudentRegistration);
+
+router.put('/student-registrations/:registrationId/reject', AdminController.rejectStudentRegistration);
+
 /**
  * @swagger
  * /api/admin/dashboard/stats:

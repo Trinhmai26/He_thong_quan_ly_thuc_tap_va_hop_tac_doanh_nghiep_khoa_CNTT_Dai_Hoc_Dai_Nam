@@ -297,7 +297,10 @@ class StudentController {
         cong_ty_tu_lien_he,
         dia_chi_cong_ty,
         nguoi_lien_he_cong_ty,
-        sdt_nguoi_lien_he
+        sdt_nguoi_lien_he,
+        so_dien_thoai,
+        email_ca_nhan,
+        dia_chi
       } = req.body;
 
       // Validate required fields
@@ -320,20 +323,57 @@ class StudentController {
         }
       }
 
+      // Get current student data to check if already registered (batch 1)
+      const currentStudent = await SinhVien.getByUserId(userId);
+      const isSecondTimeRegistration = 
+        currentStudent && 
+        currentStudent.don_vi_thuc_tap && 
+        currentStudent.vi_tri_muon_ung_tuyen_thuc_tap && 
+        currentStudent.nguyen_vong_thuc_tap;
+
+      // Prepare update data
+      let updateData = {
+        so_dien_thoai,
+        email_ca_nhan,
+        dia_chi
+      };
+
+      if (isSecondTimeRegistration) {
+        // Second registration: only allow changing vị trí, công ty, thông tin cá nhân, and CV
+        console.log('[registerInternship] Second-time registration detected - allowing only permitted fields to change');
+        updateData = {
+          ...updateData,
+          vi_tri_muon_ung_tuyen_thuc_tap,
+          don_vi_thuc_tap: nguyen_vong_thuc_tap === 'tu_lien_he' ? cong_ty_tu_lien_he : don_vi_thuc_tap,
+          cong_ty_tu_lien_he: nguyen_vong_thuc_tap === 'tu_lien_he' ? cong_ty_tu_lien_he : null,
+          dia_chi_cong_ty: nguyen_vong_thuc_tap === 'tu_lien_he' ? dia_chi_cong_ty : null,
+          nguoi_lien_he_cong_ty: nguyen_vong_thuc_tap === 'tu_lien_he' ? nguoi_lien_he_cong_ty : null,
+          sdt_nguoi_lien_he: nguyen_vong_thuc_tap === 'tu_lien_he' ? sdt_nguoi_lien_he : null
+          // Note: nguyen_vong_thuc_tap is NOT updated to keep original preference
+        };
+      } else {
+        // First registration: allow all fields
+        console.log('[registerInternship] First-time registration - allowing all fields');
+        updateData = {
+          ...updateData,
+          nguyen_vong_thuc_tap,
+          vi_tri_muon_ung_tuyen_thuc_tap,
+          don_vi_thuc_tap: nguyen_vong_thuc_tap === 'tu_lien_he' ? cong_ty_tu_lien_he : don_vi_thuc_tap,
+          cong_ty_tu_lien_he: nguyen_vong_thuc_tap === 'tu_lien_he' ? cong_ty_tu_lien_he : null,
+          dia_chi_cong_ty: nguyen_vong_thuc_tap === 'tu_lien_he' ? dia_chi_cong_ty : null,
+          nguoi_lien_he_cong_ty: nguyen_vong_thuc_tap === 'tu_lien_he' ? nguoi_lien_he_cong_ty : null,
+          sdt_nguoi_lien_he: nguyen_vong_thuc_tap === 'tu_lien_he' ? sdt_nguoi_lien_he : null
+        };
+      }
+
       // Update student record
-      const result = await SinhVien.updateInternshipRegistration(userId, {
-        nguyen_vong_thuc_tap,
-        vi_tri_muon_ung_tuyen_thuc_tap,
-        don_vi_thuc_tap: nguyen_vong_thuc_tap === 'tu_lien_he' ? cong_ty_tu_lien_he : don_vi_thuc_tap,
-        cong_ty_tu_lien_he: nguyen_vong_thuc_tap === 'tu_lien_he' ? cong_ty_tu_lien_he : null,
-        dia_chi_cong_ty: nguyen_vong_thuc_tap === 'tu_lien_he' ? dia_chi_cong_ty : null,
-        nguoi_lien_he_cong_ty: nguyen_vong_thuc_tap === 'tu_lien_he' ? nguoi_lien_he_cong_ty : null,
-        sdt_nguoi_lien_he: nguyen_vong_thuc_tap === 'tu_lien_he' ? sdt_nguoi_lien_he : null
-      });
+      const result = await SinhVien.updateInternshipRegistration(userId, updateData);
 
       res.json({
         success: true,
-        message: 'Đăng ký thực tập thành công',
+        message: isSecondTimeRegistration 
+          ? 'Cập nhật thông tin đăng ký thực tập đợt 2 thành công (thông tin cơ bản được giữ từ đợt 1)' 
+          : 'Đăng ký thực tập thành công',
         data: result
       });
     } catch (error) {

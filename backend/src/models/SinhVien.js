@@ -16,6 +16,10 @@ class SinhVien {
         this.so_dien_thoai = data.so_dien_thoai;
         this.email_ca_nhan = data.email_ca_nhan;
         this.gpa = data.gpa;
+        this.so_tc_tich_luy = data.so_tc_tich_luy;
+        this.so_tc_ht = data.so_tc_ht;
+        this.nam_thu = data.nam_thu;
+        this.hp_no = data.hp_no;
         this.tinh_trang_hoc_tap = data.tinh_trang_hoc_tap;
         this.nguyen_vong_thuc_tap = data.nguyen_vong_thuc_tap;
         this.vi_tri_muon_ung_tuyen_thuc_tap = data.vi_tri_muon_ung_tuyen_thuc_tap;
@@ -46,12 +50,17 @@ class SinhVien {
             gioiTinh: 'gioi_tinh',
             diaChi: 'dia_chi',
             gpa: 'gpa',
+            soTCTichLuy: 'so_tc_tich_luy',
+            soTCHT: 'so_tc_ht',
+            namThu: 'nam_thu',
+            hpNo: 'hp_no',
             tinhTrangHocTap: 'tinh_trang_hoc_tap',
             viTriMuonUngTuyenThucTap: 'vi_tri_muon_ung_tuyen_thuc_tap',
             viTriMuonUngTuyen: 'vi_tri_muon_ung_tuyen_thuc_tap',
             donViThucTap: 'don_vi_thuc_tap',
             nguyenVongThucTap: 'nguyen_vong_thuc_tap',
             giangVienHuongDan: 'giang_vien_huong_dan',
+            dotThucTapAdmin: 'dot_thuc_tap_admin',
         };
 
         // Build columns and values
@@ -86,11 +95,75 @@ class SinhVien {
         }
     }
 
+    // Gắn account cho sinh viên theo mã sinh viên
+    static async attachAccountByMaSinhVien(maSinhVien, accountId) {
+        try {
+            const sql = `UPDATE sinh_vien SET account_id = ?, updated_at = NOW() WHERE ma_sinh_vien = ?`;
+            const result = await query(sql, [accountId, maSinhVien]);
+            return { success: true, affectedRows: result.affectedRows || 0 };
+        } catch (error) {
+            console.error('Error in attachAccountByMaSinhVien:', error);
+            throw error;
+        }
+    }
+
     static async getByUserId(userId) {
         try {
-            const sql = `SELECT sv.*, a.user_id FROM sinh_vien sv JOIN accounts a ON sv.account_id = a.id WHERE a.user_id = ? LIMIT 1`;
-            const rows = await query(sql, [userId]);
-            return rows && rows.length ? rows[0] : null;
+            const normalizedUserId = String(userId || '').trim();
+            if (!normalizedUserId) return null;
+
+            // Primary path: linked account_id -> accounts.id
+            let rows = await query(
+                `SELECT sv.*, a.user_id
+                 FROM sinh_vien sv
+                 JOIN accounts a ON sv.account_id = a.id
+                 WHERE a.user_id = ?
+                 LIMIT 1`,
+                [normalizedUserId]
+            );
+
+            if (rows && rows.length) {
+                return rows[0];
+            }
+
+            // Fallback path: data imported but account_id not linked yet.
+            rows = await query(
+                `SELECT sv.*
+                 FROM sinh_vien sv
+                 WHERE LOWER(TRIM(sv.ma_sinh_vien)) = LOWER(TRIM(?))
+                 LIMIT 1`,
+                [normalizedUserId]
+            );
+
+            if (rows && rows.length) {
+                const fallbackStudent = rows[0];
+
+                try {
+                    if (!fallbackStudent.account_id) {
+                        const accountRows = await query(
+                            'SELECT id FROM accounts WHERE user_id = ? LIMIT 1',
+                            [normalizedUserId]
+                        );
+
+                        if (accountRows && accountRows.length > 0) {
+                            await query(
+                                'UPDATE sinh_vien SET account_id = ?, updated_at = NOW() WHERE id = ?',
+                                [accountRows[0].id, fallbackStudent.id]
+                            );
+                            fallbackStudent.account_id = accountRows[0].id;
+                        }
+                    }
+                } catch (linkError) {
+                    console.warn('Warning: failed to auto-link sinh_vien.account_id:', linkError.message || linkError);
+                }
+
+                return {
+                    ...fallbackStudent,
+                    user_id: normalizedUserId
+                };
+            }
+
+            return null;
         } catch (error) {
             console.error('Error in getByUserId:', error);
             throw error;
@@ -99,9 +172,14 @@ class SinhVien {
 
     static async updateInternshipRegistration(userId, registrationData = {}) {
         try {
+            const student = await this.getByUserId(userId);
+            if (!student || !student.id) {
+                return { success: false, message: 'Không tìm thấy sinh viên' };
+            }
+
             const fields = [];
             const values = [];
-            const allowed = ['nguyen_vong_thuc_tap', 'vi_tri_muon_ung_tuyen_thuc_tap', 'don_vi_thuc_tap', 'cong_ty_tu_lien_he', 'dia_chi_cong_ty', 'nguoi_lien_he_cong_ty', 'sdt_nguoi_lien_he', 'gpa', 'cv_path'];
+            const allowed = ['nguyen_vong_thuc_tap', 'vi_tri_muon_ung_tuyen_thuc_tap', 'so_dien_thoai', 'email_ca_nhan', 'dia_chi', 'don_vi_thuc_tap', 'cong_ty_tu_lien_he', 'dia_chi_cong_ty', 'nguoi_lien_he_cong_ty', 'sdt_nguoi_lien_he', 'gpa', 'cv_path'];
             
             for (const k of allowed) {
                 if (registrationData[k] !== undefined) {
@@ -114,25 +192,24 @@ class SinhVien {
                 return { success: false, message: 'No fields to update' };
             }
             
-            const sql = `UPDATE sinh_vien sv JOIN accounts a ON sv.account_id = a.id SET ${fields.join(', ')}, sv.updated_at = NOW() WHERE a.user_id = ?`;
-            values.push(userId);
+            const sql = `UPDATE sinh_vien SET ${fields.map((f) => f.replace('sv.', '')).join(', ')}, updated_at = NOW() WHERE id = ?`;
+            values.push(student.id);
             
             const res = await query(sql, values);
             if (!res || res.affectedRows === 0) {
                 return { success: false, message: 'Không tìm thấy sinh viên' };
             }
 
-                        const markSql = `UPDATE sinh_vien sv 
-                                JOIN accounts a ON sv.account_id = a.id 
-                                SET sv.trang_thai_phan_cong = 'da-phan-cong' 
-                                WHERE a.user_id = ? 
-                                    AND sv.vi_tri_muon_ung_tuyen_thuc_tap IS NOT NULL AND sv.vi_tri_muon_ung_tuyen_thuc_tap <> '' 
-                                    AND sv.don_vi_thuc_tap IS NOT NULL AND sv.don_vi_thuc_tap <> ''
-                                    AND sv.giang_vien_huong_dan IS NOT NULL AND sv.giang_vien_huong_dan <> ''
-                                    AND sv.nguyen_vong_thuc_tap IS NOT NULL AND sv.nguyen_vong_thuc_tap <> ''
-                                    AND sv.cv_path IS NOT NULL AND sv.cv_path <> ''`;
+                        const markSql = `UPDATE sinh_vien 
+                                SET trang_thai_phan_cong = 'da-phan-cong' 
+                                WHERE id = ? 
+                                    AND vi_tri_muon_ung_tuyen_thuc_tap IS NOT NULL AND vi_tri_muon_ung_tuyen_thuc_tap <> '' 
+                                    AND don_vi_thuc_tap IS NOT NULL AND don_vi_thuc_tap <> ''
+                                    AND giang_vien_huong_dan IS NOT NULL AND giang_vien_huong_dan <> ''
+                                    AND nguyen_vong_thuc_tap IS NOT NULL AND nguyen_vong_thuc_tap <> ''
+                                    AND cv_path IS NOT NULL AND cv_path <> ''`;
             
-            await query(markSql, [userId]);
+            await query(markSql, [student.id]);
             
             const updatedStudent = await this.getByUserId(userId);
             return { success: true, data: updatedStudent };
@@ -220,6 +297,10 @@ class SinhVien {
             gioiTinh: 'gioi_tinh',
             diaChi: 'dia_chi',
             gpa: 'gpa',
+            soTCTichLuy: 'so_tc_tich_luy',
+            soTCHT: 'so_tc_ht',
+            namThu: 'nam_thu',
+            hpNo: 'hp_no',
             tinhTrangHocTap: 'tinh_trang_hoc_tap',
             viTriMuonUngTuyen: 'vi_tri_muon_ung_tuyen_thuc_tap',
             donViThucTap: 'don_vi_thuc_tap',
@@ -229,10 +310,12 @@ class SinhVien {
         const fields = [];
         const values = [];
         for (const [src, dest] of Object.entries(mapping)) {
-            if (data[src] !== undefined && data[src] !== null) {
+            const incoming = data[src];
+            if (incoming === undefined || incoming === null) continue;
+            if (typeof incoming === 'string' && incoming.trim() === '') continue;
+
                 fields.push(`${dest} = ?`);
-                values.push(data[src]);
-            }
+                values.push(incoming);
         }
         if (!fields.length) return { success: false, message: 'No fields to update' };
         const sql = `UPDATE sinh_vien SET ${fields.join(', ')}, updated_at = NOW() WHERE ma_sinh_vien = ?`;
@@ -270,6 +353,10 @@ class SinhVien {
             gioiTinh: 'gioi_tinh',
             diaChi: 'dia_chi',
             gpa: 'gpa',
+            soTCTichLuy: 'so_tc_tich_luy',
+            soTCHT: 'so_tc_ht',
+            namThu: 'nam_thu',
+            hpNo: 'hp_no',
             tinhTrangHocTap: 'tinh_trang_hoc_tap',
             viTriMuonUngTuyen: 'vi_tri_muon_ung_tuyen_thuc_tap',
             donViThucTap: 'don_vi_thuc_tap',
@@ -278,6 +365,7 @@ class SinhVien {
         };
         const sets = [];
         const values = [];
+        const overwriteColumns = ['so_tc_tich_luy', 'so_tc_ht', 'nam_thu', 'hp_no'];
         
         // Columns that should only check IS NULL (not empty string)
         // - DATE columns: MySQL DATE cannot be ''
@@ -287,6 +375,13 @@ class SinhVien {
         for (const [src, dest] of Object.entries(mapping)) {
             const incoming = data[src];
             if (incoming !== undefined && incoming !== null && String(incoming).trim() !== '') {
+                if (overwriteColumns.includes(dest)) {
+                    // Các cột học vụ cần đồng bộ đúng theo file import mới nhất.
+                    sets.push(`${dest} = ?`);
+                    values.push(incoming);
+                    continue;
+                }
+
                 // For special columns (DATE, DECIMAL), only check IS NULL
                 if (specialColumns.includes(dest)) {
                     sets.push(`${dest} = IF(${dest} IS NULL, ?, ${dest})`);
@@ -303,40 +398,102 @@ class SinhVien {
         return { success: true, affectedRows: result.affectedRows };
     }
 
-    static async getAllWithPagination(page = 1, limit = 10, search = '', nguyen_vong = '') {
+    static async getAllWithPagination(page = 1, limit = 10, search = '', nguyen_vong = '', approvedOnly = false, trang_thai_filter = '') {
         try {
             await this.recalcAssignmentStatus();
             
             const offset = (page - 1) * limit;
-            
-            let whereClause = '';
-            const params = [];
-            
-            if (search) {
-                whereClause += ' WHERE (sv.ho_ten LIKE ? OR sv.ma_sinh_vien LIKE ? OR sv.lop LIKE ? OR sv.khoa LIKE ?)';
-                params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
-            }
-            
-            if (nguyen_vong) {
-                // accept both underscore and hyphen variants in DB
-                const hyphen = nguyen_vong.replace(/_/g, '-');
-                const underscore = nguyen_vong.replace(/-/g, '_');
-                if (whereClause) {
-                    whereClause += ' AND (sv.nguyen_vong_thuc_tap = ? OR sv.nguyen_vong_thuc_tap = ?)';
-                } else {
-                    whereClause += ' WHERE (sv.nguyen_vong_thuc_tap = ? OR sv.nguyen_vong_thuc_tap = ?)';
+
+            const buildWhere = (approvalSource = 'workflow') => {
+                let whereClause = '';
+                const whereParams = [];
+                const addCondition = (cond) => {
+                    whereClause += (whereClause ? ' AND ' : ' WHERE ') + cond;
+                };
+
+                if (search) {
+                    whereClause += ' WHERE (sv.ho_ten LIKE ? OR sv.ma_sinh_vien LIKE ? OR sv.lop LIKE ? OR sv.khoa LIKE ?)';
+                    whereParams.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
                 }
-                params.push(underscore, hyphen);
+
+                if (nguyen_vong) {
+                    const hyphen = nguyen_vong.replace(/_/g, '-');
+                    const underscore = nguyen_vong.replace(/-/g, '_');
+                    addCondition('(sv.nguyen_vong_thuc_tap = ? OR sv.nguyen_vong_thuc_tap = ?)');
+                    whereParams.push(underscore, hyphen);
+                }
+
+                // Server-side filter by approval status
+                if (trang_thai_filter && trang_thai_filter !== 'all') {
+                    const regTable = approvalSource === 'legacy' ? 'dang_ky_sinh_vien' : 'dang_ky_thuc_tap_sinh_vien';
+                    if (trang_thai_filter === 'chua-dang-ky') {
+                        addCondition(`NOT EXISTS (SELECT 1 FROM ${regTable} dkf WHERE dkf.sinh_vien_id = sv.id)`);
+                    } else {
+                        // 'bi-tu-choi' stored as 'tu-choi' in DB
+                        const dbStatus = trang_thai_filter === 'bi-tu-choi' ? 'tu-choi' : trang_thai_filter;
+                        addCondition(`(SELECT dkf2.trang_thai FROM ${regTable} dkf2 WHERE dkf2.sinh_vien_id = sv.id ORDER BY dkf2.id DESC LIMIT 1) = ?`);
+                        whereParams.push(dbStatus);
+                    }
+                }
+
+                if (approvedOnly && !trang_thai_filter) {
+                    const regTable = approvalSource === 'legacy' ? 'dang_ky_sinh_vien' : 'dang_ky_thuc_tap_sinh_vien';
+                    const approvedCondition = `EXISTS (SELECT 1 FROM ${regTable} dkao WHERE dkao.sinh_vien_id = sv.id AND dkao.trang_thai = 'da-duyet')`;
+                    addCondition(approvedCondition);
+                }
+
+                return { whereClause, whereParams };
+            };
+
+            const runWithSource = async (approvalSource = 'workflow') => {
+                const { whereClause, whereParams } = buildWhere(approvalSource);
+                const countSql = `SELECT COUNT(*) as total FROM sinh_vien sv${whereClause}`;
+                const countResult = await query(countSql, whereParams);
+                const total = countResult[0]?.total || 0;
+
+                const approvalStatusSelect = approvalSource === 'legacy'
+                    ? `(SELECT dksv.trang_thai
+                        FROM dang_ky_sinh_vien dksv
+                        WHERE dksv.sinh_vien_id = sv.id
+                        ORDER BY dksv.id DESC
+                        LIMIT 1)`
+                    : `(SELECT COALESCE(dktt.workflow_status_v2, dktt.trang_thai)
+                        FROM dang_ky_thuc_tap_sinh_vien dktt
+                        WHERE dktt.sinh_vien_id = sv.id
+                        ORDER BY dktt.id DESC
+                        LIMIT 1)`;
+
+                const dataSql = `
+                    SELECT sv.*, a.user_id, ${approvalStatusSelect} AS trang_thai_duyet
+                    FROM sinh_vien sv
+                    LEFT JOIN accounts a ON sv.account_id = a.id
+                    ${whereClause}
+                    ORDER BY sv.created_at DESC, sv.id DESC
+                    LIMIT ? OFFSET ?
+                `;
+
+                const dataParams = [...whereParams, limit, offset];
+                const students = await query(dataSql, dataParams);
+
+                return { total, students };
+            };
+
+            let total = 0;
+            let students = [];
+
+            try {
+                const result = await runWithSource('workflow');
+                total = result.total;
+                students = result.students;
+            } catch (workflowError) {
+                if (workflowError?.code !== 'ER_NO_SUCH_TABLE' && workflowError?.errno !== 1146) {
+                    throw workflowError;
+                }
+
+                const result = await runWithSource('legacy');
+                total = result.total;
+                students = result.students;
             }
-            
-            const countSql = `SELECT COUNT(*) as total FROM sinh_vien sv${whereClause}`;
-            const countResult = await query(countSql, params);
-            const total = countResult[0].total;
-            
-            const dataSql = `SELECT sv.*, a.user_id FROM sinh_vien sv JOIN accounts a ON sv.account_id = a.id${whereClause} ORDER BY sv.created_at DESC LIMIT ? OFFSET ?`;
-            
-            params.push(limit, offset);
-            const students = await query(dataSql, params);
             
             return {
                 data: students,

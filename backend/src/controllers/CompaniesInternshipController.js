@@ -30,7 +30,7 @@ class CompaniesController {
     try {
       const userId = req.user.id;
       const tokenCompanyName = req.user?.tenDoanhNghiep || null;
-      const { search = '', status = '' } = req.query;
+      const { search = '' } = req.query;
 
       // Lấy thông tin DN (id và tên công ty) từ account hiện tại
       const getCompanyQuery = `
@@ -47,54 +47,47 @@ class CompaniesController {
         return res.json({ success: true, data: [] });
       }
 
-      // Luồng chuẩn: lấy SV theo dữ liệu sinh_vien_huong_dan, match theo tên DN
-      // Bổ sung đánh giá nếu có bằng cách join phan_cong_thuc_tap theo sinh_vien_id và doanh_nghiep_id
+      // Lấy sinh viên đã PASS phỏng vấn thuộc doanh nghiệp này
       let sql = `
         SELECT 
-          COALESCE(sv.id, NULL) AS id,
-          svhd.ma_sinh_vien,
-          svhd.ho_ten_sinh_vien AS ho_ten,
-          svhd.ngay_sinh_sinh_vien AS ngay_sinh,
-          svhd.so_dien_thoai_sinh_vien AS so_dien_thoai,
-          svhd.email_sinh_vien AS email,
-          svhd.lop_sinh_vien AS lop,
-          sv.cv_path AS cv_path,
+          sv.id AS id,
+          sv.ma_sinh_vien,
+          sv.ho_ten,
+          sv.ngay_sinh,
+          sv.so_dien_thoai,
+          sv.email_ca_nhan AS email,
+          sv.lop,
+          sv.cv_path,
           NULL AS vi_tri_mong_muon,
           NULL AS ghi_chu_thuc_tap,
           NULL AS nhom_thuc_tap,
-          svhd.vi_tri_thuc_tap AS vi_tri_thuc_tap,
+          dk.vi_tri_thuc_tap_mong_muon AS vi_tri_thuc_tap,
           'dang-thuc-tap' AS trang_thai_phan_cong,
           NULL AS ngay_bat_dau_thuc_tap,
           NULL AS ngay_ket_thuc_thuc_tap,
           pct.diem_so AS diem_thuc_tap,
           pct.nhan_xet AS nhan_xet_doanh_nghiep,
           pct.ngay_nop_danh_gia AS ngay_nop_cho_gv,
-          COALESCE(svhd.ten_giang_vien, gv.ho_ten) AS giang_vien_huong_dan
-        FROM sinh_vien_huong_dan svhd
-        LEFT JOIN sinh_vien sv ON sv.ma_sinh_vien = svhd.ma_sinh_vien
-        LEFT JOIN giang_vien gv ON gv.ma_giang_vien = svhd.ma_giang_vien
+          NULL AS giang_vien_huong_dan
+        FROM dang_ky_thuc_tap_sinh_vien dk
+        INNER JOIN sinh_vien sv ON sv.id = dk.sinh_vien_id
         LEFT JOIN phan_cong_thuc_tap pct ON pct.sinh_vien_id = sv.id ${companyId ? 'AND pct.doanh_nghiep_id = ?' : ''}
-        WHERE TRIM(svhd.doanh_nghiep_thuc_tap) = TRIM(?)
+        WHERE dk.workflow_status_v2 = 'PASS'
+          AND TRIM(dk.ten_cong_ty) = TRIM(?)
       `;
-
       const params = [];
       if (companyId) params.push(companyId);
       params.push(companyName);
 
       if (search) {
-        sql += ` AND (svhd.ho_ten_sinh_vien LIKE ? OR svhd.ma_sinh_vien LIKE ? OR svhd.email_sinh_vien LIKE ?)`;
+        sql += ` AND (sv.ho_ten LIKE ? OR sv.ma_sinh_vien LIKE ? OR sv.email_ca_nhan LIKE ?)`;
         const s = `%${search}%`;
         params.push(s, s, s);
       }
-      // status hiện tại chỉ một giá trị 'dang-thuc-tap' trong luồng này; hỗ trợ filter đơn giản nếu client gửi
-      if (status) {
-        sql += ` AND 'dang-thuc-tap' = ?`;
-        params.push(status);
-      }
 
-      sql += ` ORDER BY svhd.ho_ten_sinh_vien ASC`;
+      sql += ` ORDER BY sv.ho_ten ASC`;
       const results = await connection.query(sql, params);
-      return res.json({ success: true, data: results });
+      return res.json({ success: true, data: results || [] });
     } catch (error) {
       console.error('Error in getMyInterns:', error);
       res.status(500).json({ success: false, message: 'Lỗi server' });

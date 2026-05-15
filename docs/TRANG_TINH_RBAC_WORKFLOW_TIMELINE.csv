@@ -1,0 +1,41 @@
+Nhom,Ma,Doi_tuong,Chuc_nang,Hanh_dong,Admin,Sinh_vien,Giang_vien,Doanh_nghiep,Dieu_kien,From_Status,To_Status,Moc,Ngay_bat_dau_tuong_doi,Ngay_ket_thuc_tuong_doi,Nguoi_chiu_trach_nhiem,Nguoi_nhan_nhac,So_lan_nhac,Ghi_chu
+RBAC,R1,Account,Quan_ly_tai_khoan,Xem_danh_sach,ALLOW,DENY,DENY,DENY,Chi_Admin,, , , , ,Admin,Admin,0,
+RBAC,R2,Account,Quan_ly_tai_khoan,Tao_tai_khoan,ALLOW,DENY,DENY,DENY,Chi_Admin,, , , , ,Admin,Admin,0,
+RBAC,R3,Account,Quan_ly_tai_khoan,Khoa_mo_tai_khoan,ALLOW,DENY,DENY,DENY,Chi_Admin,, , , , ,Admin,Admin,0,
+RBAC,R4,Profile,Ho_so_ca_nhan,Xem_ho_so_ca_nhan,ALLOW,ALLOW,ALLOW,ALLOW,Own_Resource,, , , , ,He_thong,All,0,
+RBAC,R5,Profile,Ho_so_ca_nhan,Cap_nhat_ho_so_ca_nhan,ALLOW,ALLOW,ALLOW,ALLOW,Own_Resource,, , , , ,He_thong,All,0,
+RBAC,R6,Sinh_vien,Quan_ly_sinh_vien,Xem_danh_sach,ALLOW,DENY,ALLOW,DENY,Giang_vien_chi_xem_sinh_vien_duoc_phan_cong,, , , , ,Admin,Admin;Giang_vien,0,
+RBAC,R7,Sinh_vien,Quan_ly_sinh_vien,Import_Export,ALLOW,DENY,DENY,DENY,Chi_Admin,, , , , ,Admin,Admin,0,
+RBAC,R8,Giang_vien,Quan_ly_giang_vien,Xem_danh_sach,ALLOW,DENY,DENY,DENY,Chi_Admin,, , , , ,Admin,Admin,0,
+RBAC,R9,Doanh_nghiep,Quan_ly_doanh_nghiep,Xem_danh_sach,ALLOW,DENY,DENY,ALLOW,Doanh_nghiep_chi_xem_ho_so_cua_minh,, , , , ,Admin,Admin;Doanh_nghiep,0,
+RBAC,R10,Doanh_nghiep,Quan_ly_doanh_nghiep,Cap_nhat_thong_tin,ALLOW,DENY,DENY,ALLOW,Doanh_nghiep_chi_sua_ho_so_cua_minh,, , , , ,Admin,Doanh_nghiep,0,
+RBAC,R11,CV,Quan_ly_CV,Tao_CV,DENY,ALLOW,DENY,DENY,Trong_giai_doan_dang_ky,, , , , ,Sinh_vien,Sinh_vien,0,
+RBAC,R12,CV,Quan_ly_CV,Xem_CV,ALLOW,ALLOW,ALLOW,ALLOW,Sinh_vien_own;Giang_vien_theo_phan_cong;Doanh_nghiep_theo_phan_cong,, , , , ,He_thong,All,0,
+RBAC,R13,Thuc_tap,Dang_ky_thuc_tap,Gui_dang_ky,DENY,ALLOW,DENY,DENY,Trong_khung_M1_M2,, , , , ,Sinh_vien,Sinh_vien,0,
+RBAC,R14,Thuc_tap,Dang_ky_thuc_tap,Duyet_ho_so,ALLOW,DENY,ALLOW,DENY,Giang_vien_duyet_chuyen_mon;Admin_duyet_chot,, , , , ,Admin,Giang_vien;Admin,0,
+RBAC,R15,Thuc_tap,Phan_cong_thuc_tap,Phan_cong_thu_cong,ALLOW,DENY,DENY,DENY,Trong_khung_M3_M4,, , , , ,Admin,Admin,0,
+RBAC,R16,Thuc_tap,Phan_cong_thuc_tap,Phan_cong_tu_dong,ALLOW,DENY,DENY,DENY,Trong_khung_M3_M4;du_lieu_day_du,, , , , ,Admin,Admin,0,
+RBAC,R17,Thuc_tap,Nhat_ky_thuc_tap,Tao_nhat_ky,DENY,ALLOW,DENY,DENY,Chi_khi_DANG_THUC_TAP,, , , , ,Sinh_vien,Sinh_vien,0,
+RBAC,R18,Bao_cao,Bao_cao_tuan,Nop_bao_cao_tuan,DENY,ALLOW,DENY,DENY,Theo_slot_bao_cao_tuan_duoc_mo,, , , , ,Sinh_vien,Sinh_vien,0,
+RBAC,R19,Bao_cao,Bao_cao_tuan,Duyet_va_nhan_xet,ALLOW,DENY,ALLOW,DENY,Giang_vien_theo_phan_cong,, , , , ,Giang_vien,Giang_vien,0,
+RBAC,R20,Bao_cao,Bao_cao_cuoi_ky,Nop_bao_cao_cuoi_ky,DENY,ALLOW,DENY,DENY,Trong_khung_M5,, , , , ,Sinh_vien,Sinh_vien,0,
+RBAC,R21,Bao_cao,Bao_cao_cuoi_ky,Cham_diem,ALLOW,DENY,ALLOW,ALLOW,GV+DN_cham;Admin_chot_diem,, , , , ,Giang_vien,Giang_vien;Doanh_nghiep;Admin,0,
+RBAC,R22,Bao_cao,Thong_ke_Export,Xuat_bao_cao,ALLOW,DENY,ALLOW,DENY,Giang_vien_chi_du_lieu_duoc_phan_cong,, , , , ,Admin,Admin;Giang_vien,0,
+STATE,S1,Thuc_tap,Vong_doi_ho_so,Tao_ho_so,,,,,Sinh_vien_gui_dang_ky,CHUA_DANG_KY,DA_DANG_KY,,,,,,,Khoi_tao_ho_so_thuc_tap
+STATE,S2,Thuc_tap,Vong_doi_ho_so,Chuyen_vao_hang_duyet,,,,,He_thong_validate_ok,DA_DANG_KY,CHO_DUYET,,,,,,,Auto_chuyen_sau_khi_submit_hop_le
+STATE,S3,Thuc_tap,Vong_doi_ho_so,Phe_duyet,,,,,Admin_or_Giang_vien_duoc_phan_quyen,CHO_DUYET,DA_DUYET,,,,,,,Ghi_nguoi_duyet_va_thoi_gian
+STATE,S4,Thuc_tap,Vong_doi_ho_so,Tu_choi,,,,,Co_ly_do_tu_choi,CHO_DUYET,TU_CHOI,,,,,,,Bat_buoc_ly_do_tu_choi
+STATE,S5,Thuc_tap,Vong_doi_ho_so,Nop_lai_sau_tu_choi,,,,,Sinh_vien_cap_nhat_theo_feedback,TU_CHOI,DA_DANG_KY,,,,,,,Cho_phep_nop_lai_trong_M1_M2
+STATE,S6,Thuc_tap,Vong_doi_ho_so,Phan_cong_GV_DN,,,,,Trong_M3_M4_va_ho_so_DA_DUYET,DA_DUYET,DA_PHAN_CONG,,,,,,,Co_the_thu_cong_hoac_tu_dong
+STATE,S7,Thuc_tap,Vong_doi_ho_so,Bat_dau_thuc_tap,,,,,Den_ngay_bat_dau_dot,DA_PHAN_CONG,DANG_THUC_TAP,,,,,,,He_thong_tu_dong_chuyen_trang_thai
+STATE,S8,Thuc_tap,Vong_doi_ho_so,Canh_bao_tre_tien_do,,,,,Qua_han_bao_cao_tuan_va_chua_nop,DANG_THUC_TAP,CANH_BAO_TIEN_DO,,,,,,,Khong_thay_the_DANG_THUC_TAP_o_DB_nen_luu_flag
+STATE,S9,Thuc_tap,Vong_doi_ho_so,Mo_bao_cao_cuoi_ky,,,,,Den_khung_M5,DANG_THUC_TAP,CHO_NOP_BAO_CAO_CUOI_KY,,,,,,,Mo_duoc_form_nop_cuoi_ky
+STATE,S10,Thuc_tap,Vong_doi_ho_so,Da_nop_cuoi_ky,,,,,Sinh_vien_nop_day_du,CHO_NOP_BAO_CAO_CUOI_KY,CHO_CHAM_DIEM,,,,,,,Khoa_sua_noi_dung_sau_khi_nop
+STATE,S11,Thuc_tap,Vong_doi_ho_so,Hoan_thanh_dot,,,,,Co_diem_GV_va_DN_va_Admin_chot,CHO_CHAM_DIEM,HOAN_THANH,,,,,,,Trang_thai_ket_thuc_chinh_thuc
+STATE,S12,Thuc_tap,Vong_doi_ho_so,Huy_ho_so,,,,,Admin_huy_do_vi_pham_or_rut_ho_so,CHUA_DANG_KY|DA_DANG_KY|CHO_DUYET|DA_DUYET,HUY,,,,,,,Trang_thai_ket_thuc_bat_thuong
+TIMELINE,T1,Dot_thuc_tap,Moc_1,Mo_dang_ky,,,,,, , ,M1_MO_DANG_KY,-60,-45,Admin,Sinh_vien,3,Nhac_T-7_T-3_T-1
+TIMELINE,T2,Dot_thuc_tap,Moc_2,Dong_dang_ky,,,,,, , ,M2_DONG_DANG_KY,-44,-30,Admin,Sinh_vien;Giang_vien,4,Nhac_T-7_T-3_T-1_va_T+1_qua_han
+TIMELINE,T3,Dot_thuc_tap,Moc_3,Han_duyet_ho_so,,,,,, , ,M3_HAN_DUYET,-29,-20,Giang_vien;Admin,Giang_vien;Admin,3,Canh_bao_ho_so_ton_dong
+TIMELINE,T4,Dot_thuc_tap,Moc_4,Han_phan_cong_GV_DN,,,,,, , ,M4_HAN_PHAN_CONG,-19,-10,Admin,Admin;Giang_vien;Doanh_nghiep,3,Chot_phan_cong_truoc_khi_bat_dau_dot
+TIMELINE,T5,Dot_thuc_tap,Moc_5,Han_nop_bao_cao_cuoi_ky,,,,,, , ,M5_HAN_NOP_CUOI_KY,0,85,Sinh_vien,Sinh_vien;Giang_vien,5,Nhac_theo_tuan_va_T-7_T-3_T-1
+TIMELINE,T6,Dot_thuc_tap,Moc_6,Han_cham_diem_va_chot_ket_qua,,,,,, , ,M6_HAN_CHAM_DIEM,86,100,Giang_vien;Doanh_nghiep;Admin,Giang_vien;Doanh_nghiep;Admin,4,Neu_qua_han_tu_dong_bao_cao_ton_dong

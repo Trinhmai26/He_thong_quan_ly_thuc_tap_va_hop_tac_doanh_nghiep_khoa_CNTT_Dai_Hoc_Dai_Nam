@@ -1,0 +1,23 @@
+[
+    {
+        "api_key": "api_key_1",
+        "secret_key": "secret_key_1",
+        "imei": "e86584f3-2ad0-4844-ba11-d53f9a3d98f8-b87543ecbc0ba610d9f06f9f2c432a46",
+        "session_cookies": {
+            "_ga_1J0YGQPT22": "GS2.1.s1772405251$o1$g1$t1772405263$j48$l0$h0",
+            "_ga_RYD7END4JE": "GS2.2.s1772405265$o1$g1$t1772405267$j58$l0$h0",
+            "_ga_YS1V643LGV": "GS2.1.s1772410768$o2$g0$t1772410768$j60$l0$h0",
+            "_ga_907M127EPP": "GS2.1.s1777046284$o2$g0$t1777046284$j60$l0$h0",
+            "_ga": "GA1.2.159641734.1772405251",
+            "_ga_E63JS7SPBL": "GS2.1.s1778056026$o2$g0$t1778056027$j59$l0$h0",
+            "_ga_NVN38N77J3": "GS2.2.s1778056027$o2$g0$t1778056027$j60$l0$h0",
+            "_ga_3EM8ZPYYN3": "GS2.2.s1778580564$o2$g0$t1778580564$j60$l0$h0",
+            "zpsid": "4-PN.456234299.1.k2Xd4-C3ladObezIxmE-IPPmp7tMDOnwrp67SCbtUyIba6kjucn2Iua3laa",
+            "zpw_sek": "dZo5.456234299.a0.iEpZnH5pJ2Kgvdq-C7DC9MfHAKupIMuNUo0876acUt1RGZb18aOuV2T2FcD0Jd47R5auu9mrt_3rSYFP4nbC9G",
+            "__zi": "3000.SSZzejyD6zOgdh2mtnLQWYQN_RAG01ICFjIXe9fEM8Wxd--dcqfJWdESuQdVJbo5Vf3eeJ0t.1",
+            "__zi-legacy": "3000.SSZzejyD6zOgdh2mtnLQWYQN_RAG01ICFjIXe9fEM8Wxd--dcqfJWdESuQdVJbo5Vf3eeJ0t.1",
+            "_zlang": "vn",
+            "app.event.zalo.me": "544685556204872966"
+        }
+    }
+]

@@ -1,0 +1,9 @@
+Flask
+Flask-Cors
+requests
+pycryptodome
+munch
+attrs
+websockets
+Pillow
+aiohttp

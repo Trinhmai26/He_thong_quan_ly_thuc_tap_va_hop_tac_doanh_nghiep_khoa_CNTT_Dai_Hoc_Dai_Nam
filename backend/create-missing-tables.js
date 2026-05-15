@@ -125,9 +125,29 @@ async function createMissingTables() {
 
   } catch (error) {
     console.error('❌ Lỗi tạo bảng:', error);
-  } finally {
-    process.exit(0);
+    throw error;
   }
 }
 
-createMissingTables();
+if (require.main === module) {
+  const { createDatabaseConnection, closeConnections } = require('./src/database/connection');
+
+  createDatabaseConnection()
+    .then(() => createMissingTables())
+    .then(() => closeConnections())
+    .then(() => {
+      console.log('🎉 Hoàn tất tạo các bảng bổ sung!');
+      process.exit(0);
+    })
+    .catch(async (error) => {
+      try {
+        await closeConnections();
+      } catch (_) {
+        // Ignore close errors in CLI mode
+      }
+      console.error('💥 Tạo các bảng bổ sung thất bại:', error.message);
+      process.exit(1);
+    });
+}
+
+module.exports = { createMissingTables };

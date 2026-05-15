@@ -134,6 +134,7 @@ app.use('/api/report-batches', require('./src/routes/reportBatches'));
 app.use('/api/admin/reports', require('./src/routes/adminReports'));
 app.use('/api/teacher-reports', require('./src/routes/teacherReports'));
 app.use('/api/teacher-profile', require('./src/routes/teacherProfile'));
+app.use('/api/templates', require('./src/routes/templates'));
 app.use('/api/teacher-submissions', require('./src/routes/teacherSubmissions'));
 app.use('/api/teacher-company-evaluations', require('./src/routes/teacher-company-evaluations'));
 app.use('/api/internship-reports', require('./src/routes/internship-reports'));
@@ -150,6 +151,9 @@ app.use('/api/admin', require('./src/routes/admin'));
 app.use('/api/registration', require('./src/routes/registration'));
 app.use('/api/file', require('./src/routes/file'));
 app.use('/api/notifications', require('./src/routes/notifications'));
+app.use('/api/workflow', require('./src/routes/workflow'));
+app.use('/api/interview-workflow', require('./src/routes/interview-workflow'));
+app.use('/api/zalo', require('./src/routes/zalo'));
 
 // New resource routes (map English endpoints to Vietnamese-backed models)
 app.use('/api/sinh-vien', require('./src/routes/SinhVien'));
@@ -320,6 +324,35 @@ const startServer = async () => {
       console.log(`   - Health: http://localhost:${PORT}/health`);
       console.log('───────────────────────────────────────');
     });
+
+    // ── Zalo Queue & Workers ──────────────────────────────────────────────────
+    try {
+      const cron = require('node-cron');
+      const { ensureQueueTable }              = require('./src/services/zaloQueue');
+      const { processQueue }                  = require('./src/services/zaloWorker');
+      const { ensureReminderTable, remindStudentsBeforeDeadline } = require('./src/services/deadlineReminder');
+
+      // Tạo bảng nếu chưa có
+      await ensureQueueTable();
+      await ensureReminderTable();
+      console.log('📨 Zalo queue: bảng zalo_message_queue & deadline_reminders đã sẵn sàng.');
+
+      // Worker: lấy 3 tin pending, gửi tuần tự (delay 4s/tin), chạy mỗi 30 giây
+      cron.schedule('*/30 * * * * *', async () => {
+        await processQueue();
+      });
+      console.log('⚙️  Zalo worker: chạy mỗi 30 giây (3 tin/lần, delay 4s giữa các tin).');
+
+      // Deadline reminder: quét đợt nộp sắp hết hạn 23–25h, đưa vào queue, chạy mỗi 10 phút
+      cron.schedule('*/10 * * * *', async () => {
+        await remindStudentsBeforeDeadline();
+      });
+      console.log('⏰ Deadline reminder: chạy mỗi 10 phút (queue nhắc 24h trước hạn).');
+
+    } catch (cronErr) {
+      console.error('⚠️ Không khởi động được Zalo cron jobs:', cronErr.message);
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     // Graceful shutdown
     process.on('SIGTERM', () => {

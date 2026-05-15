@@ -153,7 +153,7 @@ class TeacherReportsController {
     try {
       const maGiangVien = req.user?.maGiangVien || req.user?.userId;
       const { maSinhVien } = req.params;
-      const { diem_giang_vien, nhan_xet_giang_vien } = req.body || {};
+      const { diem_giang_vien, nhan_xet_giang_vien, slot_id } = req.body || {};
 
       if (diem_giang_vien !== undefined && (Number(diem_giang_vien) < 0 || Number(diem_giang_vien) > 10)) {
         return res.status(400).json({ success: false, message: 'Điểm phải từ 0 đến 10' });
@@ -209,6 +209,21 @@ class TeacherReportsController {
         );
         result = fallback;
       }
+
+      // Also save per-slot grade if slot_id provided
+      if (slot_id && diem_giang_vien !== undefined && diem_giang_vien !== null && diem_giang_vien !== '') {
+        try {
+          await conn.query(
+            `INSERT INTO diem_theo_dot_nop (slot_id, ma_sinh_vien, diem_giang_vien, nhan_xet_giang_vien)
+             VALUES (?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE diem_giang_vien = VALUES(diem_giang_vien), nhan_xet_giang_vien = VALUES(nhan_xet_giang_vien), updated_at = NOW()`,
+            [slot_id, maSinhVien, diem_giang_vien, nhan_xet_giang_vien ?? null]
+          );
+        } catch (slotErr) {
+          console.error('Per-slot grade save failed (slot_id=%s, sv=%s):', slot_id, maSinhVien, slotErr.message);
+        }
+      }
+
       res.json({ success: true, message: 'Đã lưu chấm điểm', data: result });
     } catch (error) {
       console.error('❌ Grade student error:', error);
@@ -250,7 +265,9 @@ class TeacherReportsController {
       const maSinhVien = req.user?.maSinhVien || req.user?.userId;
       const conn = require('../database/connection');
       const [sv] = await conn.query(`SELECT id FROM sinh_vien WHERE ma_sinh_vien = ?`, [maSinhVien]);
-      if (!sv) return res.json({ success: true, data: null });
+      if (!sv) return res.json({ success: true, data: null, slotGrades: {} });
+
+      // Overall grade from phan_cong_thuc_tap (kept for backward compat)
       let rows = await conn.query(
         `SELECT pct.diem_giang_vien, pct.nhan_xet_giang_vien, pct.updated_at AS updated_at FROM phan_cong_thuc_tap pct WHERE pct.sinh_vien_id = ? ORDER BY pct.updated_at DESC LIMIT 1`,
         [sv.id]
@@ -261,15 +278,86 @@ class TeacherReportsController {
           [sv.id]
         );
       }
-      res.json({ success: true, data: rows?.[0] || null });
+
+      // Per-slot grades from diem_theo_dot_nop
+      let slotRows = [];
+      try {
+        slotRows = await conn.query(
+          `SELECT slot_id, diem_giang_vien, nhan_xet_giang_vien, updated_at FROM diem_theo_dot_nop WHERE ma_sinh_vien = ?`,
+          [maSinhVien]
+        );
+      } catch (e) {
+        // Table may not exist yet; ignore
+      }
+      const slotGrades = {};
+      for (const row of (slotRows || [])) {
+        slotGrades[row.slot_id] = {
+          diem_giang_vien: row.diem_giang_vien,
+          nhan_xet_giang_vien: row.nhan_xet_giang_vien,
+          updated_at: row.updated_at,
+        };
+      }
+
+      res.json({ success: true, data: rows?.[0] || null, slotGrades });
     } catch (e) {
       res.status(500).json({ success: false, message: 'Lỗi server' });
     }
   }
 
-  // GET /api/teacher-reports/export-evaluations - CSV export
+  // GET /api/teacher-reports/grades-summary - JSON bảng điểm tổng hợp
+  static async getGradesSummary(req, res) {
+    try {
+      const maGiangVien = req.user?.maGiangVien || req.user?.userId;
+      const conn = require('../database/connection');
+
+      // Primary: join phan_cong_thuc_tap via giang_vien table
+      let rows = [];
+      try {
+        rows = await conn.query(
+          `SELECT sv.ma_sinh_vien, sv.ho_ten, sv.lop,
+                  COALESCE(dn.ten_cong_ty, '') AS ten_cong_ty,
+                  COALESCE(pct.diem_giang_vien, pct.diem_so) AS diem_giang_vien,
+                  COALESCE(pct.nhan_xet_giang_vien, pct.nhan_xet) AS nhan_xet_giang_vien
+           FROM phan_cong_thuc_tap pct
+           JOIN sinh_vien sv ON sv.id = pct.sinh_vien_id
+           JOIN giang_vien gv ON gv.id = pct.giang_vien_id
+           LEFT JOIN doanh_nghiep dn ON dn.id = pct.doanh_nghiep_id
+           WHERE gv.ma_giang_vien = ?
+           ORDER BY sv.lop, sv.ma_sinh_vien`,
+          [maGiangVien]
+        );
+      } catch (_) {}
+
+      // Fallback: use sinh_vien_huong_dan if primary returned nothing
+      if (!rows || rows.length === 0) {
+        try {
+          rows = await conn.query(
+            `SELECT svhd.ma_sinh_vien,
+                    svhd.ho_ten_sinh_vien AS ho_ten,
+                    svhd.lop_sinh_vien AS lop,
+                    COALESCE(svhd.doanh_nghiep_thuc_tap, '') AS ten_cong_ty,
+                    COALESCE(pct.diem_giang_vien, pct.diem_so) AS diem_giang_vien,
+                    COALESCE(pct.nhan_xet_giang_vien, pct.nhan_xet) AS nhan_xet_giang_vien
+             FROM sinh_vien_huong_dan svhd
+             LEFT JOIN sinh_vien sv ON sv.ma_sinh_vien = svhd.ma_sinh_vien
+             LEFT JOIN phan_cong_thuc_tap pct ON pct.sinh_vien_id = sv.id
+               AND pct.giang_vien_id = (SELECT id FROM giang_vien WHERE ma_giang_vien = ? LIMIT 1)
+             WHERE svhd.ma_giang_vien = ?
+             ORDER BY svhd.lop_sinh_vien, svhd.ma_sinh_vien`,
+            [maGiangVien, maGiangVien]
+          );
+        } catch (_) {}
+      }
+
+      res.json({ success: true, data: rows || [] });
+    } catch (e) {
+      console.error('Grades summary error:', e);
+      res.status(500).json({ success: false, message: 'Lỗi lấy bảng điểm' });
+    }
+  }
   static async exportEvaluations(req, res) {
     try {
+      const ExcelJS = require('exceljs');
       const maGiangVien = req.user?.maGiangVien || req.user?.userId;
       const conn = require('../database/connection');
       let rows = await conn.query(
@@ -296,16 +384,74 @@ class TeacherReportsController {
           [maGiangVien]
         );
       }
-      const header = 'ma_sinh_vien,ho_ten,lop,ten_cong_ty,diem_giang_vien,nhan_xet_giang_vien\n';
-      const body = rows.map(r => [r.ma_sinh_vien, r.ho_ten, r.lop, r.ten_cong_ty, r.diem_giang_vien ?? '', (r.nhan_xet_giang_vien || '').replace(/\n/g,' ')]
-        .map(x => typeof x === 'string' && x.includes(',') ? `"${x.replace(/"/g,'""')}"` : x)
-        .join(',')).join('\n');
-      const csv = header + body;
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition', 'attachment; filename="teacher-evaluations.csv"');
-      res.send('\ufeff' + csv);
+
+      const wb = new ExcelJS.Workbook();
+      wb.creator = 'Hệ thống quản lý thực tập';
+      const ws = wb.addWorksheet('Điểm sinh viên');
+
+      // Column definitions
+      ws.columns = [
+        { header: 'STT',            key: 'stt',              width: 6  },
+        { header: 'Mã sinh viên',   key: 'ma_sinh_vien',     width: 16 },
+        { header: 'Họ tên',         key: 'ho_ten',           width: 28 },
+        { header: 'Lớp',            key: 'lop',              width: 14 },
+        { header: 'Doanh nghiệp',   key: 'ten_cong_ty',      width: 30 },
+        { header: 'Điểm GV (0-10)', key: 'diem_giang_vien',  width: 16 },
+        { header: 'Nhận xét',       key: 'nhan_xet',         width: 50 },
+      ];
+
+      // Style header row
+      const headerRow = ws.getRow(1);
+      headerRow.eachCell(cell => {
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E40AF' } };
+        cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+        cell.border = {
+          top: { style: 'thin' }, bottom: { style: 'thin' },
+          left: { style: 'thin' }, right: { style: 'thin' }
+        };
+      });
+      headerRow.height = 22;
+
+      // Data rows
+      (rows || []).forEach((r, i) => {
+        const row = ws.addRow({
+          stt: i + 1,
+          ma_sinh_vien: r.ma_sinh_vien || '',
+          ho_ten: r.ho_ten || '',
+          lop: r.lop || '',
+          ten_cong_ty: r.ten_cong_ty || '',
+          diem_giang_vien: r.diem_giang_vien !== null && r.diem_giang_vien !== undefined ? Number(r.diem_giang_vien) : '',
+          nhan_xet: (r.nhan_xet_giang_vien || '').replace(/\n/g, ' '),
+        });
+        const fillColor = i % 2 === 0 ? 'FFFAFAFA' : 'FFE8F0FE';
+        row.eachCell(cell => {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fillColor } };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+            bottom: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+            left: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+            right: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+          };
+          cell.alignment = { vertical: 'middle', wrapText: true };
+        });
+        // Center score cell
+        row.getCell('diem_giang_vien').alignment = { vertical: 'middle', horizontal: 'center' };
+        row.getCell('stt').alignment = { vertical: 'middle', horizontal: 'center' };
+        row.height = 20;
+      });
+
+      // Freeze header
+      ws.views = [{ state: 'frozen', ySplit: 1 }];
+
+      const filename = `diem_sinh_vien_${new Date().toISOString().slice(0,10)}.xlsx`;
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      await wb.xlsx.write(res);
+      res.end();
     } catch (e) {
-      res.status(500).json({ success: false, message: 'Lỗi xuất file' });
+      console.error('Export Excel error:', e);
+      res.status(500).json({ success: false, message: 'Lỗi xuất file Excel' });
     }
   }
 

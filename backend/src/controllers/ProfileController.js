@@ -69,6 +69,19 @@ class ProfileController {
       }
       
       const account = accounts[0];
+
+      // Normalize admin fields to consistent naming used by frontend
+      if (userRole === 'admin' && profileData) {
+        profileData.ho_ten = profileData.ho_ten || profileData.full_name || '';
+        profileData.so_dien_thoai = profileData.so_dien_thoai || profileData.phone || '';
+        profileData.chuc_vu = profileData.chuc_vu || profileData.position || '';
+      }
+
+      // Always merge email from accounts table into profileData
+      const accountEmailRows = await connection.query('SELECT email FROM accounts WHERE id = ? LIMIT 1', [userId]);
+      if (accountEmailRows && accountEmailRows.length > 0 && profileData) {
+        profileData.email = profileData.email || accountEmailRows[0].email || '';
+      }
       
       res.json({
         success: true,

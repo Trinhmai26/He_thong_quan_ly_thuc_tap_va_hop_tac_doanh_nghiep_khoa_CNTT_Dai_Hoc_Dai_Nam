@@ -4,69 +4,90 @@
 const GiangVien = require('../models/GiangVien');
 const ExcelJS = require('exceljs');
 
-// Xuất Excel danh sách giảng viên với số lượng sinh viên hướng dẫn
+// Xuất Excel danh sách giảng viên theo đúng format template mới
 const exportToExcel = async (req, res) => {
   try {
     console.log('📊 Xuất Excel danh sách giảng viên...');
-    
-    // Lấy tất cả giảng viên (không phân trang)
+
     const result = await GiangVien.getAll(1, 1000);
     const teachers = result.giangViens;
-    
-    // Tạo workbook mới
+
+    const FONT = { name: 'Times New Roman', size: 12 };
+
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Danh sách Giảng viên');
-    
-    // Thiết lập header
-    worksheet.columns = [
-      { header: 'STT', key: 'stt', width: 10 },
-      { header: 'Mã GV', key: 'maGiangVien', width: 15 },
-      { header: 'Họ tên', key: 'hoTen', width: 25 },
-      { header: 'Email', key: 'email', width: 30 },
-      { header: 'Số ĐT', key: 'soDienThoai', width: 15 },
-      { header: 'Khoa', key: 'khoa', width: 20 },
-      { header: 'Bộ môn', key: 'boMon', width: 25 },
-      { header: 'Số SV hướng dẫn', key: 'soSinhVienHuongDan', width: 20 }
+    const worksheet = workbook.addWorksheet('DS CBGV Khoa CNTT');
+
+    const headers = [
+      { header: 'STT',                   key: 'stt',              width: 6  },
+      { header: 'MÃ ĐỊNH DANH MỚI',      key: 'maGiangVien',      width: 22 },
+      { header: 'HỌ VÀ TÊN',             key: 'hoTen',            width: 25 },
+      { header: 'NGÀY SINH',             key: 'ngaySinh',         width: 15 },
+      { header: 'PHÒNG BAN',             key: 'khoa',             width: 32 },
+      { header: 'HỌC VỊ',               key: 'hocVi',            width: 12 },
+      { header: 'Chức danh',             key: 'chucDanh',         width: 20 },
+      { header: 'Chức vụ',              key: 'chucVu',           width: 14 },
+      { header: 'Số điện thoại',         key: 'soDienThoai',      width: 18 },
+      { header: 'Căn cước công dân',     key: 'canCuocCongDan',   width: 22 },
+      { header: 'Email',                 key: 'email',            width: 30 },
+      { header: 'Chuyên môn đào tạo',   key: 'chuyenMon',        width: 26 },
     ];
-    
-    // Style cho header
-    worksheet.getRow(1).font = { bold: true };
-    worksheet.getRow(1).fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFE0E0E0' }
+
+    worksheet.columns = headers;
+
+    // Style header
+    const headerRow = worksheet.getRow(1);
+    headerRow.height = 30;
+    headerRow.eachCell((cell) => {
+      cell.font = { ...FONT, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+      cell.border = {
+        top: { style: 'thin' }, left: { style: 'thin' },
+        bottom: { style: 'thin' }, right: { style: 'thin' }
+      };
+    });
+
+    worksheet.autoFilter = {
+      from: { row: 1, column: 1 },
+      to: { row: 1, column: headers.length }
     };
-    
+
     // Thêm dữ liệu
     teachers.forEach((teacher, index) => {
-      worksheet.addRow({
+      const row = worksheet.addRow({
         stt: index + 1,
         maGiangVien: teacher.maGiangVien,
         hoTen: teacher.hoTen,
-        email: teacher.email,
-        soDienThoai: teacher.soDienThoai,
-        khoa: teacher.khoa,
-        boMon: teacher.boMon,
-        soSinhVienHuongDan: teacher.soSinhVienHuongDan || teacher.so_sinh_vien_huong_dan || 0
+        ngaySinh: teacher.ngaySinh || '',
+        khoa: teacher.khoa || '',
+        hocVi: teacher.hocVi || '',
+        chucDanh: teacher.chucDanh || '',
+        chucVu: teacher.chucVu || '',
+        soDienThoai: teacher.soDienThoai || '',
+        canCuocCongDan: teacher.canCuocCongDan || '',
+        email: teacher.email || '',
+        chuyenMon: teacher.chuyenMon || '',
+      });
+      row.eachCell({ includeEmpty: true }, (cell) => {
+        cell.font = FONT;
+        cell.border = {
+          top: { style: 'thin' }, left: { style: 'thin' },
+          bottom: { style: 'thin' }, right: { style: 'thin' }
+        };
       });
     });
-    
-    // Thiết lập response header
-    const filename = `danh-sach-giang-vien-${new Date().toISOString().split('T')[0]}.xlsx`;
+
+    const filename = `DS-CBGV-KhoaCNTT-${new Date().toISOString().split('T')[0]}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    
-    // Ghi workbook vào response
+
     await workbook.xlsx.write(res);
     res.end();
-    
+
     console.log(`✅ Xuất Excel giảng viên thành công: ${teachers.length} giảng viên`);
   } catch (error) {
     console.error('❌ Lỗi xuất Excel giảng viên:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Lỗi khi xuất file Excel'
-    });
+    res.status(500).json({ success: false, message: 'Lỗi khi xuất file Excel' });
   }
 };
 

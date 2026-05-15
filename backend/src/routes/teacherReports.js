@@ -108,7 +108,10 @@ router.get('/students/:maSinhVien/evaluation', authenticateToken, requireRole(['
 // Student fetches own teacher evaluation
 router.get('/student/evaluation', authenticateToken, requireRole(['sinh-vien']), TeacherReportsController.getMyEvaluation);
 
-// Export teacher evaluations as CSV
+// JSON grades summary (for table display)
+router.get('/grades-summary', authenticateToken, requireRole(['giang-vien']), TeacherReportsController.getGradesSummary);
+
+// Export teacher evaluations as Excel
 router.get('/export-evaluations', authenticateToken, requireRole(['giang-vien']), TeacherReportsController.exportEvaluations);
 
 module.exports = router;

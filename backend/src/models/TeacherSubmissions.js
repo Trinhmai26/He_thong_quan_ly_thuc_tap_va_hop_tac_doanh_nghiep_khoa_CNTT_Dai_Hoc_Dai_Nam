@@ -8,6 +8,68 @@ const ensureDir = (dir) => {
 };
 
 class TeacherSubmissions {
+  static isMissingTableError(error) {
+    return error && (error.code === 'ER_NO_SUCH_TABLE' || String(error.message || '').includes("doesn't exist"));
+  }
+
+  static async listStudentsByTeacher(maGiangVien) {
+    try {
+      return await connection.query(
+        `SELECT
+           svhd.ma_sinh_vien,
+           svhd.ho_ten_sinh_vien,
+           svhd.email_sinh_vien AS email_ca_nhan,
+           svhd.so_dien_thoai_sinh_vien,
+           svhd.lop_sinh_vien AS lop
+         FROM sinh_vien_huong_dan svhd
+         WHERE svhd.ma_giang_vien = ?`,
+        [maGiangVien]
+      );
+    } catch (error) {
+      if (!TeacherSubmissions.isMissingTableError(error)) {
+        throw error;
+      }
+
+      return await connection.query(
+        `SELECT
+           sv.ma_sinh_vien,
+           sv.ho_ten AS ho_ten_sinh_vien,
+           sv.email_ca_nhan AS email_ca_nhan,
+           sv.so_dien_thoai AS so_dien_thoai_sinh_vien,
+           sv.lop
+         FROM giang_vien gv
+         JOIN sinh_vien sv ON LOWER(TRIM(sv.giang_vien_huong_dan)) = LOWER(TRIM(gv.ho_ten))
+         WHERE gv.ma_giang_vien = ?
+         ORDER BY sv.ho_ten ASC`,
+        [maGiangVien]
+      );
+    }
+  }
+
+  static async getTeacherCodeByStudent(maSinhVien) {
+    try {
+      const [sv] = await connection.query(
+        `SELECT ma_giang_vien FROM sinh_vien_huong_dan WHERE ma_sinh_vien = ? LIMIT 1`,
+        [maSinhVien]
+      );
+      return sv?.ma_giang_vien || null;
+    } catch (error) {
+      if (!TeacherSubmissions.isMissingTableError(error)) {
+        throw error;
+      }
+
+      const [fallback] = await connection.query(
+        `SELECT gv.ma_giang_vien
+         FROM sinh_vien sv
+         JOIN giang_vien gv ON LOWER(TRIM(sv.giang_vien_huong_dan)) = LOWER(TRIM(gv.ho_ten))
+         WHERE sv.ma_sinh_vien = ?
+         LIMIT 1`,
+        [maSinhVien]
+      );
+      return fallback?.ma_giang_vien || null;
+    }
+  }
+
   static async ensureTables() {
     // Create tables if not exist
     await connection.query(`
@@ -41,6 +103,20 @@ class TeacherSubmissions {
         INDEX idx_sv (ma_sinh_vien)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS diem_theo_dot_nop (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        slot_id INT NOT NULL,
+        ma_sinh_vien VARCHAR(20) NOT NULL,
+        diem_giang_vien DECIMAL(4,2),
+        nhan_xet_giang_vien TEXT,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_slot_sv (slot_id, ma_sinh_vien),
+        FOREIGN KEY (slot_id) REFERENCES dot_nop_bao_cao_theo_tuan(id) ON DELETE CASCADE,
+        INDEX idx_sv (ma_sinh_vien)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
   }
 
   static async updateSlotTimes(maGiangVien, slotId, { start_at, end_at }) {
@@ -50,6 +126,25 @@ class TeacherSubmissions {
        SET start_at = ?, end_at = ?
        WHERE id = ? AND ma_giang_vien = ?`,
       [start_at, end_at, slotId, maGiangVien]
+    );
+    return { affectedRows: result.affectedRows || result?.info?.affectedRows || 0 };
+  }
+
+  static async updateSlot(maGiangVien, slotId, { tieu_de, mo_ta, loai_bao_cao, start_at, end_at }) {
+    const result = await connection.query(
+      `UPDATE dot_nop_bao_cao_theo_tuan
+       SET tieu_de = ?, mo_ta = ?, loai_bao_cao = ?, start_at = ?, end_at = ?
+       WHERE id = ? AND ma_giang_vien = ?`,
+      [tieu_de, mo_ta ?? null, loai_bao_cao, start_at, end_at, slotId, maGiangVien]
+    );
+    return { affectedRows: result.affectedRows || result?.info?.affectedRows || 0 };
+  }
+
+  static async deleteSlot(maGiangVien, slotId) {
+    const result = await connection.query(
+      `DELETE FROM dot_nop_bao_cao_theo_tuan
+       WHERE id = ? AND ma_giang_vien = ?`,
+      [slotId, maGiangVien]
     );
     return { affectedRows: result.affectedRows || result?.info?.affectedRows || 0 };
   }
@@ -82,17 +177,7 @@ class TeacherSubmissions {
     if (!slot) throw new Error('Không tìm thấy đợt nộp');
 
     // Get all students under this teacher
-    const students = await connection.query(
-      `SELECT 
-         svhd.ma_sinh_vien,
-         svhd.ho_ten_sinh_vien,
-         svhd.email_sinh_vien AS email_ca_nhan,
-         svhd.so_dien_thoai_sinh_vien,
-         svhd.lop_sinh_vien AS lop
-       FROM sinh_vien_huong_dan svhd
-       WHERE svhd.ma_giang_vien = ?`,
-      [maGiangVien]
-    );
+    const students = await TeacherSubmissions.listStudentsByTeacher(maGiangVien);
 
     // Get submissions for this slot (all files)
     const submissions = await connection.query(
@@ -109,6 +194,26 @@ class TeacherSubmissions {
        WHERE gv.ma_giang_vien = ?`,
       [maGiangVien]
     );
+
+    // Get per-slot grades for this specific slot
+    let slotGradeRows = [];
+    try {
+      slotGradeRows = await connection.query(
+        `SELECT ma_sinh_vien, diem_giang_vien, nhan_xet_giang_vien
+         FROM diem_theo_dot_nop
+         WHERE slot_id = ?`,
+        [slotId]
+      );
+    } catch (e) {
+      // Table may not exist yet; ignore
+    }
+    const slotGradeMap = new Map();
+    for (const g of slotGradeRows) {
+      slotGradeMap.set(g.ma_sinh_vien, {
+        diem_giang_vien: g.diem_giang_vien,
+        nhan_xet_giang_vien: g.nhan_xet_giang_vien,
+      });
+    }
 
     const evalByStudent = new Map();
     for (const ev of companyEvals) {
@@ -139,6 +244,7 @@ class TeacherSubmissions {
       const files = filesByStudent.get(sv.ma_sinh_vien) || [];
       const latest = files[0];
       const ev = evalByStudent.get(sv.ma_sinh_vien) || {};
+      const slotGrade = slotGradeMap.get(sv.ma_sinh_vien) || {};
       return {
         ...sv,
         trang_thai: latest ? latest.trang_thai : 'chua_nop',
@@ -149,6 +255,8 @@ class TeacherSubmissions {
         teacher_comment: latest ? latest.teacher_comment : null,
         company_comment: ev.company_comment || null,
         company_score: ev.company_score || null,
+        diem_giang_vien: slotGrade.diem_giang_vien != null ? Number(slotGrade.diem_giang_vien) : null,
+        nhan_xet_giang_vien: slotGrade.nhan_xet_giang_vien || null,
         files,
         files_count: files.length,
       };
@@ -175,18 +283,14 @@ class TeacherSubmissions {
 
   // Student APIs
   static async listOpenSlotsForStudent(maSinhVien) {
-    // Find student's teacher
-    const [sv] = await connection.query(
-      `SELECT ma_giang_vien FROM sinh_vien_huong_dan WHERE ma_sinh_vien = ? LIMIT 1`,
-      [maSinhVien]
-    );
-    if (!sv) return [];
+    const maGiangVien = await TeacherSubmissions.getTeacherCodeByStudent(maSinhVien);
+    if (!maGiangVien) return [];
     return connection.query(
       `SELECT id, tieu_de, loai_bao_cao, mo_ta, start_at, end_at
        FROM dot_nop_bao_cao_theo_tuan 
        WHERE ma_giang_vien = ? AND start_at <= NOW() AND end_at >= NOW()
        ORDER BY id DESC`,
-      [sv.ma_giang_vien]
+      [maGiangVien]
     );
   }
 
@@ -198,6 +302,27 @@ class TeacherSubmissions {
       [slotId, maSinhVien, file_path, original_name, mime_type, file_size]
     );
     return { id: result.insertId };
+  }
+
+  static async deleteSubmission(submissionId, maSinhVien) {
+    // Returns the file_path so caller can delete from disk
+    const rows = await connection.query(
+      `SELECT s.file_path, d.end_at
+       FROM bai_nop_cua_sinh_vien s
+       JOIN dot_nop_bao_cao_theo_tuan d ON d.id = s.slot_id
+       WHERE s.id = ? AND s.ma_sinh_vien = ? LIMIT 1`,
+      [submissionId, maSinhVien]
+    );
+    if (!rows.length) return null;
+    // Block deletion if slot is already closed
+    if (new Date() > new Date(rows[0].end_at)) {
+      throw Object.assign(new Error('Đợt nộp đã đóng, không thể xóa bài.'), { status: 403 });
+    }
+    await connection.query(
+      `DELETE FROM bai_nop_cua_sinh_vien WHERE id = ? AND ma_sinh_vien = ?`,
+      [submissionId, maSinhVien]
+    );
+    return rows[0].file_path;
   }
 
   static async listStudentSubmissions(slotId, maSinhVien) {
@@ -212,12 +337,23 @@ class TeacherSubmissions {
     );
   }
 
-  static async listAllSlotsForStudent(maSinhVien) {
-    const [sv] = await connection.query(
-      `SELECT ma_giang_vien FROM sinh_vien_huong_dan WHERE ma_sinh_vien = ? LIMIT 1`,
+  static async listAllMySubmissions(maSinhVien) {
+    return connection.query(
+      `SELECT s.id, s.slot_id, s.original_name, s.mime_type, s.file_size, s.submitted_at,
+              s.teacher_comment, s.trang_thai,
+              CONCAT('/uploads/submissions/', s.slot_id, '/', SUBSTRING_INDEX(s.file_path, '/', -1)) AS file_url,
+              d.tieu_de AS slot_tieu_de, d.loai_bao_cao, d.end_at AS slot_end_at
+       FROM bai_nop_cua_sinh_vien s
+       JOIN dot_nop_bao_cao_theo_tuan d ON s.slot_id = d.id
+       WHERE s.ma_sinh_vien = ?
+       ORDER BY s.submitted_at DESC, s.id DESC`,
       [maSinhVien]
     );
-    if (!sv) return [];
+  }
+
+  static async listAllSlotsForStudent(maSinhVien) {
+    const maGiangVien = await TeacherSubmissions.getTeacherCodeByStudent(maSinhVien);
+    if (!maGiangVien) return [];
     return connection.query(
       `SELECT id, tieu_de, loai_bao_cao, mo_ta, start_at, end_at,
         CASE 
@@ -228,7 +364,7 @@ class TeacherSubmissions {
        FROM dot_nop_bao_cao_theo_tuan 
        WHERE ma_giang_vien = ?
        ORDER BY start_at DESC, id DESC`,
-      [sv.ma_giang_vien]
+      [maGiangVien]
     );
   }
 }

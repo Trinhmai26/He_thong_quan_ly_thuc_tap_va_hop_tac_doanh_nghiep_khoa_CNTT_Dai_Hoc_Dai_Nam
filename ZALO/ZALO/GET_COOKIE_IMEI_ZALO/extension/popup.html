@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Get IMEI & Cookies Zalo</title>
+  <link rel="stylesheet" href="./css/font-awesome.min.css">
+  <link rel="stylesheet" href="./css/popup.css">
+  <link rel="stylesheet" href="./css/custom.css">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-image: url('https://files.catbox.moe/n5eis8.jpeg');
+      background-size: cover;
+      background-position: center;
+      color: #333;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      padding: 20px;
+      overflow: hidden;
+    }
+
+    .box-custom {
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+      padding: 20px;
+      width: 400px;
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    h2 {
+      margin-bottom: 20px;
+      font-size: 24px;
+      color: #007BFF;
+    }
+
+    .welcome-message {
+      margin-bottom: 20px;
+      font-size: 18px;
+      color: #555;
+    }
+
+    .el-input {
+      margin-bottom: 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 10px;
+    }
+
+    .el-input__inner {
+      border: none;
+      outline: none;
+      flex: 1;
+      margin-right: 10px;
+      background: #f9f9f9;
+      border-radius: 4px;
+    }
+
+    .el-button {
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 10px 15px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .el-button:hover {
+      background-color: #0056b3;
+    }
+
+    .loading-data {
+      display: none;
+      text-align: center;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    .icon-loading {
+      color: #007BFF;
+    }
+
+    #refresh-button {
+      margin-top: 20px;
+    }
+
+    .admin-info {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #777;
+    }
+
+    .animal {
+      position: absolute;
+      width: 80px;
+      height: auto;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0% { transform: translatey(0); }
+      50% { transform: translatey(-20px); }
+      100% { transform: translatey(0); }
+    }
+
+    .animal:nth-child(1) {
+      top: 10%;
+      left: 10%;
+    }
+
+    .animal:nth-child(2) {
+      top: 20%;
+      right: 15%;
+    }
+
+    .animal:nth-child(3) {
+      bottom: 15%;
+      left: 5%;
+    }
+
+    .animal:nth-child(4) {
+      bottom: 20%;
+      right: 10%;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app"></div>
+  <div id="custom" class="box-custom">
+    <h2>Chào mừng bạn đến với công cụ lấy IMEI và cookie</h2>
+    <div class="welcome-message">
+      BOT ZALO <br>
+      Công Cụ Get Imei Cookie Python
+    </div>
+    <div style="margin-bottom: 10px;">
+      IMEI NỘI DUNG
+      <div id="imei-div" class="el-input">
+        <input id="imei-input" type="text" disabled="disabled" autocomplete="off" class="el-input__inner">
+        <div class="el-input-group__append">
+          <button id="btn-copy-1" type="button" class="el-button">
+            <i class="el-icon-document-copy"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div style="margin-bottom: 10px;">
+      COOKIE NỘI DUNG
+      <div id="cookies-div" class="el-input">
+        <input id="cookies-input" type="text" disabled="disabled" autocomplete="off" class="el-input__inner">
+        <div class="el-input-group__append">
+          <button id="btn-copy-2" type="button" class="el-button">
+            <i class="el-icon-document-copy"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div>
+      <button type="button" id="refresh-button" class="el-button">
+        Refresh Page
+      </button>
+    </div>
+    <div class="admin-info">
+      <p>BOT ZALO</p>
+      <p>Công Cụ Get Imei Cookie Python</p>
+    </div>
+  </div>
+
+  <div id="loading_data" class="loading-data">
+    <i class="icon-loading fa fa-spinner fa-spin fa-3x fa-fw"></i>
+  </div>
+
+  <img src="https://example.com/cute-animal1.png" class="animal" alt="Cute Animal 1">
+  <img src="https://example.com/cute-animal2.png" class="animal" alt="Cute Animal 2">
+  <img src="https://example.com/cute-animal3.png" class="animal" alt="Cute Animal 3">
+  <img src="https://example.com/cute-animal4.png" class="animal" alt="Cute Animal 4">
+
+  <script src="./js/custom.js"></script>
+  <script src="./js/popup.js"></script>
+</body>
+
+</html>

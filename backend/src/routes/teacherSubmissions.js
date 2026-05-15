@@ -9,7 +9,9 @@ router.post('/slots', authenticateToken, requireRole(['giang-vien']), ctrl.creat
 router.get('/slots', authenticateToken, requireRole(['giang-vien']), ctrl.listTeacherSlots);
 router.get('/slots/:slotId/statuses', authenticateToken, requireRole(['giang-vien']), ctrl.getSlotStatuses);
 router.put('/submissions/:submissionId/comment', authenticateToken, requireRole(['giang-vien']), ctrl.commentSubmission);
+router.put('/slots/:slotId', authenticateToken, requireRole(['giang-vien']), ctrl.updateSlot);
 router.put('/slots/:slotId/times', authenticateToken, requireRole(['giang-vien']), ctrl.updateSlotTimes);
+router.delete('/slots/:slotId', authenticateToken, requireRole(['giang-vien']), ctrl.deleteSlot);
 
 // Student uploads into a slot
 router.get('/student/open-slots', authenticateToken, requireRole(['sinh-vien']), ctrl.listOpenSlotsForStudent);
@@ -21,5 +23,7 @@ router.post('/student/slots/:slotId/uploads', authenticateToken, requireRole(['s
 // advisor info and my submissions
 router.get('/student/advisor', authenticateToken, requireRole(['sinh-vien']), ctrl.getAdvisorInfo);
 router.get('/student/slots/:slotId/my-submissions', authenticateToken, requireRole(['sinh-vien']), ctrl.listMySubmissions);
+router.get('/student/all-my-submissions', authenticateToken, requireRole(['sinh-vien']), ctrl.listAllMySubmissions);
+router.delete('/student/submissions/:submissionId', authenticateToken, requireRole(['sinh-vien']), ctrl.deleteMySubmission);
 
 module.exports = router;

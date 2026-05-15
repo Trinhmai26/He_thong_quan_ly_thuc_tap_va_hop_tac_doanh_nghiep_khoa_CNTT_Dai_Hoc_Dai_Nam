@@ -1,6 +1,7 @@
 const express = require('express');
 const AssignmentsController = require('../controllers/AssignmentsController');
 const { authenticateToken, requireRole } = require('../middleware/auth');
+const { validateInternshipWorkflowTransition } = require('../middleware/validateInternshipWorkflowTransition');
 
 const router = express.Router();
 
@@ -14,7 +15,18 @@ router.post('/', authenticateToken, requireRole(['admin']), AssignmentsControlle
 router.post('/register', authenticateToken, requireRole(['sinh-vien']), AssignmentsController.registerInternship);
 
 // PUT /api/assignments/:id - Cập nhật phân công thực tập
-router.put('/:id', authenticateToken, AssignmentsController.updateAssignment);
+router.put(
+	'/:id',
+	authenticateToken,
+	validateInternshipWorkflowTransition({
+		table: 'phan_cong_thuc_tap',
+		idParam: 'id',
+		statusField: 'workflow_status',
+		strictRoleGuard: true,
+		strictMilestoneGuard: false
+	}),
+	AssignmentsController.updateAssignment
+);
 
 // DELETE /api/assignments/:id - Xóa phân công thực tập (Admin)
 router.delete('/:id', authenticateToken, requireRole(['admin']), AssignmentsController.deleteAssignment);

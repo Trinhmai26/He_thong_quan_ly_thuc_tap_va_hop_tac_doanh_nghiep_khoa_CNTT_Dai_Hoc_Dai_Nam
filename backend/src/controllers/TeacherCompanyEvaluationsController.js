@@ -33,15 +33,13 @@ class TeacherCompanyEvaluations {
           dtt.ten_dot,
           dtt.thoi_gian_bat_dau as thoi_gian_bat_dau_dot,
           dtt.thoi_gian_ket_thuc as thoi_gian_ket_thuc_dot,
-          svhd.vi_tri_thuc_tap,
-          COALESCE(gv.ma_giang_vien, svhd.ma_giang_vien) AS ma_giang_vien_nguon
+          gv.ma_giang_vien AS ma_giang_vien_nguon
         FROM phan_cong_thuc_tap pt
         INNER JOIN sinh_vien sv ON sv.id = pt.sinh_vien_id
         INNER JOIN doanh_nghiep dn ON dn.id = pt.doanh_nghiep_id
         INNER JOIN dot_thuc_tap dtt ON dtt.id = pt.dot_thuc_tap_id
         LEFT JOIN giang_vien gv ON gv.id = pt.giang_vien_id
-        LEFT JOIN sinh_vien_huong_dan svhd ON svhd.ma_sinh_vien = sv.ma_sinh_vien
-        WHERE (gv.ma_giang_vien = ? OR svhd.ma_giang_vien = ?)
+        WHERE gv.ma_giang_vien = ?
           AND (pt.diem_so IS NOT NULL OR (pt.nhan_xet IS NOT NULL AND TRIM(pt.nhan_xet) != ''))
         ORDER BY 
           CASE WHEN pt.ngay_nop_danh_gia IS NOT NULL THEN 0 ELSE 1 END,
@@ -49,7 +47,7 @@ class TeacherCompanyEvaluations {
           sv.ho_ten ASC
       `;
 
-      const evaluations = await connection.query(query, [maGiangVien, maGiangVien]);
+      const evaluations = await connection.query(query, [maGiangVien]);
 
       // Group by company for better organization
       const groupedByCompany = evaluations.reduce((acc, eval_item) => {
@@ -104,11 +102,10 @@ class TeacherCompanyEvaluations {
         FROM phan_cong_thuc_tap pt
         LEFT JOIN giang_vien gv ON gv.id = pt.giang_vien_id
         LEFT JOIN sinh_vien sv ON sv.id = pt.sinh_vien_id
-        LEFT JOIN sinh_vien_huong_dan svhd ON svhd.ma_sinh_vien = sv.ma_sinh_vien
-        WHERE (gv.ma_giang_vien = ? OR svhd.ma_giang_vien = ?)
+        WHERE gv.ma_giang_vien = ?
       `;
 
-      const [stats] = await connection.query(statsQuery, [maGiangVien, maGiangVien]);
+      const [stats] = await connection.query(statsQuery, [maGiangVien]);
 
       const avg = stats.average_score != null ? Number(stats.average_score) : null;
       const min = stats.min_score != null ? Number(stats.min_score) : null;
@@ -153,12 +150,11 @@ class TeacherCompanyEvaluations {
         FROM phan_cong_thuc_tap pt
         LEFT JOIN giang_vien gv ON gv.id = pt.giang_vien_id
         LEFT JOIN sinh_vien sv ON sv.id = pt.sinh_vien_id
-        LEFT JOIN sinh_vien_huong_dan svhd ON svhd.ma_sinh_vien = sv.ma_sinh_vien
-        WHERE pt.sinh_vien_id = ? AND (gv.ma_giang_vien = ? OR svhd.ma_giang_vien = ?)
+        WHERE pt.sinh_vien_id = ? AND gv.ma_giang_vien = ?
         LIMIT 1
       `;
 
-      const [assignment] = await connection.query(checkQuery, [studentId, maGiangVien, maGiangVien]);
+      const [assignment] = await connection.query(checkQuery, [studentId, maGiangVien]);
       if (!assignment) {
         return res.status(404).json({ success: false, message: 'Không tìm thấy phân công phù hợp' });
       }

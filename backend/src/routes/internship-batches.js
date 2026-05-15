@@ -23,6 +23,9 @@ router.post('/', authenticateToken, requireRole(['admin']), InternshipBatchesCon
 // PUT /api/internship-batches/:id - Cập nhật thông tin đợt thực tập (Admin only)
 router.put('/:id', authenticateToken, requireRole(['admin']), InternshipBatchesController.updateBatch);
 
+// PATCH /api/internship-batches/:id/sub-batch-schedule - Cập nhật ngày thực tập cho đợt nhỏ (Admin only)
+router.patch('/:id/sub-batch-schedule', authenticateToken, requireRole(['admin']), InternshipBatchesController.updateSubBatchSchedule);
+
 // DELETE /api/internship-batches/:id - Xóa đợt thực tập (Admin only)
 router.delete('/:id', authenticateToken, requireRole(['admin']), InternshipBatchesController.deleteBatch);
 
