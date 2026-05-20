@@ -68,26 +68,24 @@ async function extractStudentNameFromCv({ absoluteCvPath }) {
 }
 
 /**
- * Gọi Python /api/validate-cv để xác thực tên ứng viên trong CV.
+ * Gọi Python /api/validate-cv để xác thực tên/mã SV/email trong nội dung CV.
  *
  * @param {object} opts
- * @param {string} opts.absoluteCvPath   - Đường dẫn tuyệt đối tới file CV
- * @param {string} opts.studentName      - Họ tên sinh viên từ DB
- * @param {string} [opts.originalFilename] - Tên file gốc (để Python kiểm tra thêm)
- *
- * @returns {Promise<{
- *   is_match:       boolean,
- *   expected_name:  string,
- *   extracted_name: string|null,
- *   filename_match: boolean,
- *   content_match:  boolean,
- *   similarity:     number,
- *   message:        string
- * }>}
+ * @param {string} opts.absoluteCvPath    - Đường dẫn tuyệt đối tới file CV
+ * @param {string} opts.studentName       - Họ tên sinh viên từ DB
+ * @param {string} [opts.studentCode]     - Mã sinh viên (ví dụ: 1671020196)
+ * @param {string} [opts.studentEmail]    - Email sinh viên
+ * @param {string} [opts.originalFilename] - Tên file gốc (chỉ để log)
  *
  * @throws Nếu Python service không khả dụng (caller phải bắt và fallback).
  */
-async function validateCvOwnership({ absoluteCvPath, studentName, originalFilename = '' }) {
+async function validateCvOwnership({
+  absoluteCvPath,
+  studentName,
+  studentCode = '',
+  studentEmail = '',
+  originalFilename = '',
+}) {
   if (!absoluteCvPath || !fs.existsSync(absoluteCvPath)) {
     throw new Error('Không tìm thấy file CV để xác thực');
   }
@@ -97,13 +95,14 @@ async function validateCvOwnership({ absoluteCvPath, studentName, originalFilena
     {
       filePath:         absoluteCvPath,
       studentName:      studentName,
+      studentCode:      studentCode,
+      studentEmail:     studentEmail,
       originalFilename: originalFilename,
     },
     {
       timeout: Math.min(CV_ANALYZER_TIMEOUT_MS, 60000),
       headers: { 'Content-Type': 'application/json' },
-      // Không throw trên 4xx/5xx — trả data về để caller xử lý
-      validateStatus: () => true,
+      validateStatus: () => true, // không throw trên 4xx/5xx
     }
   );
 

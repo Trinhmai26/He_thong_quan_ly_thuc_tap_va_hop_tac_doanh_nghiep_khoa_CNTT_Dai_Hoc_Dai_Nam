@@ -230,20 +230,37 @@ function isStrongStudentInfoFoundInFilename(fileName, student) {
 }
 
 async function validateUploadedCvOwnershipOrThrow(uploadedFile, student) {
-  const absoluteCvPath = uploadedFile?.path;
+  const absoluteCvPath  = uploadedFile?.path;
   const originalFilename = uploadedFile?.originalname || '';
-  const studentName = student?.ho_ten || '';
+  const studentName      = String(student?.ho_ten || '').trim();
+  const studentCode      = String(student?.ma_sinh_vien || '').trim();
+  const studentEmail     = String(student?.email_ca_nhan || '').trim().toLowerCase();
+
+  // Normalize: bỏ dấu + lowercase + bỏ ký tự đặc biệt + gộp khoảng trắng
+  const normFn = (s) => String(s || '')
+    .toLowerCase()
+    .replace(/đ/g, 'd')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const normStudentName = normFn(studentName);
+  const normStudentCode = normFn(studentCode);
 
   console.log(`\n[CV_VALIDATION] ===== START =====`);
-  console.log(`[CV_VALIDATION] Student : ${studentName} (${student?.ma_sinh_vien})`);
-  console.log(`[CV_VALIDATION] File    : ${originalFilename}`);
-  console.log(`[CV_VALIDATION] Path    : ${absoluteCvPath}`);
+  console.log(`[CV_VALIDATION] studentName     : "${studentName}"`);
+  console.log(`[CV_VALIDATION] studentCode     : "${studentCode}"`);
+  console.log(`[CV_VALIDATION] studentEmail    : "${studentEmail}"`);
+  console.log(`[CV_VALIDATION] fileName        : "${originalFilename}"`);
+  console.log(`[CV_VALIDATION] normStudentName : "${normStudentName}"`);
+  console.log(`[CV_VALIDATION] normStudentCode : "${normStudentCode}"`);
 
   // ══════════════════════════════════════════════════════════════════════════
   // PRIMARY PATH: Python /api/validate-cv
-  // Gọi Python service trước — nó tự extract text + so sánh tên.
-  // Nếu Python trả is_match=false → reject ngay, không fallback.
-  // Nếu Python unavailable → dùng Node.js fallback bên dưới.
+  // Truyền name + code + email để Python có thể xác minh bằng nhiều cách.
+  // Tên file KHÔNG được dùng làm điều kiện chấp nhận.
   // ══════════════════════════════════════════════════════════════════════════
   let pythonUnavailable = false;
   try {
@@ -251,103 +268,94 @@ async function validateUploadedCvOwnershipOrThrow(uploadedFile, student) {
     const validation = await validateCvOwnership({
       absoluteCvPath,
       studentName,
-      originalFilename,
+      studentCode,
+      studentEmail,
+      originalFilename: '', // không truyền filename để Python không dùng filename làm bằng chứng
     });
 
-    console.log(`[CV_VALIDATION] Python result: is_match=${validation.is_match} extracted="${validation.extracted_name}" similarity=${validation.similarity}`);
+    console.log(`[CV_VALIDATION] Python result: is_match=${validation.is_match} ` +
+      `content_match=${validation.content_match} extracted="${validation.extracted_name}" ` +
+      `similarity=${validation.similarity} message="${validation.message}"`);
 
     if (validation.is_match) {
-      console.log(`[CV_VALIDATION] SUCCESS (Python): name match confirmed`);
+      console.log(`[CV_VALIDATION] ACCEPTED (Python)`);
       return;
     }
 
-    // Python đã extract được tên và xác nhận KHÔNG khớp → reject
-    const extractedDisplay = validation.extracted_name || 'không xác định được';
-    console.error(`[CV_VALIDATION] REJECTED (Python): extracted="${extractedDisplay}" expected="${studentName}"`);
-    const err = new Error(
-      `Tên trong nội dung CV ("${extractedDisplay}") không khớp với tài khoản sinh viên ("${studentName}"). ` +
-      `Vui lòng tải lên CV của chính bạn.`
-    );
-    err.code = 'CV_OWNER_MISMATCH';
-    err.extracted_name = validation.extracted_name;
-    err.expected_name = studentName;
-    throw err;
+    // Python trả về không khớp → không throw ngay, để Node.js fallback kiểm tra thêm
+    // (phòng trường hợp Python đọc sai font hoặc encoding, nhưng code/email vẫn đọc được)
+    console.warn(`[CV_VALIDATION] Python: no match — trying Node.js fallback for code/email check`);
+    pythonUnavailable = true;
 
   } catch (pyError) {
-    if (pyError.code === 'CV_OWNER_MISMATCH') {
-      throw pyError; // Rejection từ Python — throw lên trên
-    }
-    // Python service không khả dụng — log và fallback Node.js
+    if (pyError.code === 'CV_OWNER_MISMATCH') throw pyError;
     pythonUnavailable = true;
-    console.warn(`[CV_VALIDATION] Python service unavailable (${pyError.code || pyError.message}) — using Node.js fallback`);
+    console.warn(`[CV_VALIDATION] Python unavailable (${pyError.code || pyError.message}) — Node.js fallback`);
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // FALLBACK PATH (chỉ khi Python không khả dụng)
-  // Dùng pdfParse để lấy text, sau đó so khớp nghiêm ngặt.
-  // KHÔNG chấp nhận dựa trên tên file khi đã có nội dung CV.
+  // FALLBACK: Node.js đọc PDF text trực tiếp + kiểm tra nội dung
+  // Nếu không đọc được text → REJECT (không chấp nhận chỉ vì tên file đúng).
   // ══════════════════════════════════════════════════════════════════════════
-  if (!pythonUnavailable) return; // không bao giờ đến đây, nhưng guard an toàn
+  if (!pythonUnavailable) return;
 
   let cvText = '';
   try {
     cvText = await extractPdfTextFallback(absoluteCvPath);
-    if (cvText) {
-      console.log(`[CV_VALIDATION] Fallback: extracted ${cvText.length} chars via pdfParse`);
-    }
   } catch (pdfErr) {
     console.warn(`[CV_VALIDATION] pdfParse error: ${pdfErr?.message}`);
   }
 
-  // Trường hợp không đọc được text: chỉ chấp nhận nếu tên file CÓ đầy đủ mã SV + tên
-  if (!cvText) {
-    console.warn(`[CV_VALIDATION] No text extracted — filename-only check`);
-    if (isStrongStudentInfoFoundInFilename(originalFilename, student)) {
-      console.log(`[CV_VALIDATION] SUCCESS (fallback): strong filename match, no text`);
-      return;
-    }
-    const noTextErr = new Error(
-      `Không đọc được nội dung CV. Vui lòng đảm bảo CV ở dạng text (không scan ảnh), ` +
-      `hoặc đặt tên file: ${student?.ma_sinh_vien}_HoTen.pdf`
+  const extractedLen = cvText ? cvText.length : 0;
+  console.log(`[CV_VALIDATION] extractedTextLength : ${extractedLen}`);
+  if (extractedLen > 0) {
+    console.log(`[CV_VALIDATION] extractedText (1000): ${cvText.substring(0, 1000)}`);
+  }
+
+  // Không đọc được text → REJECT rõ ràng
+  if (!cvText || cvText.trim().length < 20) {
+    console.error(`[CV_VALIDATION] REJECTED: cannot read CV content`);
+    const err = new Error(
+      `Không đọc được nội dung CV. Vui lòng tải CV dạng PDF có thể copy text (không phải ảnh scan).`
     );
-    noTextErr.code = 'CV_OWNER_MISMATCH';
-    throw noTextErr;
+    err.code = 'CV_OWNER_MISMATCH';
+    throw err;
   }
 
-  // Có text → so khớp nội dung, KHÔNG dùng tên file làm quyết định cuối
-  const dbStudentCodeCompact = normalizeCompactText(student?.ma_sinh_vien || '');
-  const cvTextCompact = normalizeCompactText(cvText);
+  // Normalize CV text
+  const normCvText   = normFn(cvText);
+  const cvTextRaw    = cvText.toLowerCase();
 
-  // Check 1: Mã sinh viên xuất hiện trong nội dung CV
-  if (dbStudentCodeCompact && cvTextCompact.includes(dbStudentCodeCompact)) {
-    console.log(`[CV_VALIDATION] SUCCESS (fallback): student code found in CV text`);
+  // Kiểm tra nội dung CV
+  const nameInCv  = normStudentName ? normCvText.includes(normStudentName) : false;
+  const codeInCv  = studentCode
+    ? (normCvText.includes(normStudentCode) || cvText.includes(studentCode))
+    : false;
+  const emailInCv = studentEmail ? cvTextRaw.includes(studentEmail) : false;
+  const tokenMatch = isStudentInfoFoundInCv(cvText, student);
+  const isValid   = nameInCv || codeInCv || emailInCv || tokenMatch;
+
+  console.log(`[CV_VALIDATION] normalizedCvText (500): ${normCvText.substring(0, 500)}`);
+  console.log(`[CV_VALIDATION] cvContainsStudentName : ${nameInCv}`);
+  console.log(`[CV_VALIDATION] cvContainsStudentCode : ${codeInCv}`);
+  console.log(`[CV_VALIDATION] cvContainsEmail       : ${emailInCv}`);
+  console.log(`[CV_VALIDATION] cvTokenMatch          : ${tokenMatch}`);
+  console.log(`[CV_VALIDATION] finalIsValid          : ${isValid}`);
+
+  if (isValid) {
+    console.log(`[CV_VALIDATION] ACCEPTED (fallback): CV content verified`);
     return;
   }
 
-  // Check 2: Tên sinh viên xuất hiện đầy đủ trong nội dung CV (compact, không dấu)
-  const dbNameCompact = normalizeCompactText(student?.ho_ten || '');
-  if (dbNameCompact && cvTextCompact.includes(dbNameCompact)) {
-    console.log(`[CV_VALIDATION] SUCCESS (fallback): full compact name found in CV text`);
-    return;
-  }
-
-  // Check 3: Tất cả token tên xuất hiện như whole-word trong CV text
-  const isContentMatch = isStudentInfoFoundInCv(cvText, student);
-  console.log(`[CV_VALIDATION] Fallback content check: ${isContentMatch ? 'PASS' : 'FAIL'}`);
-
-  if (isContentMatch) {
-    console.log(`[CV_VALIDATION] SUCCESS (fallback): name tokens found in CV content`);
-    return;
-  }
-
-  // Nội dung CV không chứa thông tin sinh viên → REJECT
-  // KHÔNG fallback về tên file khi đã có nội dung CV
-  console.error(`[CV_VALIDATION] REJECTED (fallback): CV content does not contain student info`);
+  // Nội dung không khớp → REJECT
+  console.error(`[CV_VALIDATION] REJECTED: CV content does not match student info`);
   const rejectErr = new Error(
-    `Nội dung CV không chứa thông tin của "${studentName}" (${student?.ma_sinh_vien}). ` +
-    `Vui lòng tải lên CV của chính bạn.`
+    `CV không khớp với tài khoản sinh viên. ` +
+    `Nội dung CV không chứa họ tên hoặc mã sinh viên của "${studentName}" (${studentCode}). ` +
+    `Vui lòng tải đúng CV của bạn.`
   );
   rejectErr.code = 'CV_OWNER_MISMATCH';
+  rejectErr.rejectReason = `nameInCv=${nameInCv} codeInCv=${codeInCv} emailInCv=${emailInCv} tokenMatch=${tokenMatch}`;
   throw rejectErr;
 }
 
@@ -499,7 +507,7 @@ async function notifyBatchAssignment({ studentId, dot }) {
   }
 }
 
-async function syncStudentToCurrentBatch(userId) {
+async function syncStudentToCurrentBatch(userId, specificBatchId = null) {
   // Ensure participant table exists in environments where setup script was not run.
   await connection.query(`
     CREATE TABLE IF NOT EXISTS sinh_vien_thuc_tap (
@@ -520,33 +528,35 @@ async function syncStudentToCurrentBatch(userId) {
     return;
   }
 
-  const [activeBatch] = await connection.query(
-    `SELECT id
-     FROM dot_thuc_tap
-     WHERE DATE(NOW()) BETWEEN DATE(COALESCE(thoi_gian_dang_ky_tu, thoi_gian_bat_dau))
-                          AND DATE(COALESCE(thoi_gian_dang_ky_den, thoi_gian_ket_thuc))
-     ORDER BY created_at DESC
-     LIMIT 1`
-  );
+  let batchId = specificBatchId ? Number(specificBatchId) : null;
 
-  if (!activeBatch) {
-    return;
+  if (!batchId) {
+    const [activeBatch] = await connection.query(
+      `SELECT id
+       FROM dot_thuc_tap
+       WHERE DATE(NOW()) BETWEEN DATE(COALESCE(thoi_gian_dang_ky_tu, thoi_gian_bat_dau))
+                            AND DATE(COALESCE(thoi_gian_dang_ky_den, thoi_gian_ket_thuc))
+       ORDER BY created_at DESC
+       LIMIT 1`
+    );
+    if (!activeBatch) return;
+    batchId = activeBatch.id;
   }
 
   await connection.query(
     `INSERT IGNORE INTO sinh_vien_thuc_tap (ma_sinh_vien, dot_thuc_tap_id, trang_thai)
      VALUES (?, ?, 'dang-ky')`,
-    [student.ma_sinh_vien, activeBatch.id]
+    [student.ma_sinh_vien, batchId]
   );
 
   const [countRow] = await connection.query(
     'SELECT COUNT(*) AS count FROM sinh_vien_thuc_tap WHERE dot_thuc_tap_id = ?',
-    [activeBatch.id]
+    [batchId]
   );
 
   await connection.query(
     'UPDATE dot_thuc_tap SET so_sinh_vien_tham_gia = ? WHERE id = ?',
-    [Number(countRow?.count || 0), activeBatch.id]
+    [Number(countRow?.count || 0), batchId]
   );
 }
 
@@ -923,37 +933,202 @@ router.post('/', authenticateToken, requireRole(['admin']), async (req, res) => 
 
 // IMPORTANT: Place specific routes BEFORE dynamic parameter routes to avoid conflicts
 
+// GET /api/sinh-vien/available-batches - Danh sách đợt thực tập có thể chọn
+router.get('/available-batches', authenticateToken, async (req, res) => {
+  try {
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sinh_vien_thuc_tap (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        ma_sinh_vien VARCHAR(20) NOT NULL,
+        dot_thuc_tap_id INT NOT NULL,
+        ngay_dang_ky TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        trang_thai ENUM('dang-ky', 'duoc-phan-cong', 'hoan-thanh', 'huy') DEFAULT 'dang-ky',
+        INDEX idx_ma_sinh_vien (ma_sinh_vien),
+        INDEX idx_dot_thuc_tap (dot_thuc_tap_id),
+        UNIQUE KEY unique_sinh_vien_dot (ma_sinh_vien, dot_thuc_tap_id),
+        FOREIGN KEY (dot_thuc_tap_id) REFERENCES dot_thuc_tap(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+
+    const { student } = await resolveStudentFromAuthUser(req.user || {});
+    const maSinhVien = student?.ma_sinh_vien || null;
+
+    const now = new Date();
+    const batches = await connection.query(`
+      SELECT
+        dt.id, dt.ten_dot, dt.mo_ta, dt.trang_thai,
+        dt.thoi_gian_bat_dau, dt.thoi_gian_ket_thuc,
+        dt.thoi_gian_dang_ky_tu, dt.thoi_gian_dang_ky_den,
+        dt.so_sinh_vien_tham_gia,
+        (SELECT COUNT(*) FROM sinh_vien_thuc_tap svt WHERE svt.dot_thuc_tap_id = dt.id) AS registered_count
+      FROM dot_thuc_tap dt
+      WHERE dt.trang_thai != 'ket-thuc'
+        AND dt.thoi_gian_dang_ky_tu IS NOT NULL
+        AND dt.thoi_gian_dang_ky_den IS NOT NULL
+      ORDER BY dt.thoi_gian_dang_ky_tu ASC
+    `);
+
+    let selectedBatchId = null;
+    let selectedBatchIds = [];
+    if (maSinhVien) {
+      const rows = await connection.query(
+        'SELECT dot_thuc_tap_id FROM sinh_vien_thuc_tap WHERE ma_sinh_vien = ?',
+        [maSinhVien]
+      );
+      selectedBatchIds = (rows || []).map(r => r.dot_thuc_tap_id);
+      if (selectedBatchIds.length > 0) selectedBatchId = selectedBatchIds[selectedBatchIds.length - 1];
+    }
+
+    const result = batches.map(b => {
+      const regStart = b.thoi_gian_dang_ky_tu ? new Date(b.thoi_gian_dang_ky_tu) : null;
+      const regEnd = b.thoi_gian_dang_ky_den ? new Date(b.thoi_gian_dang_ky_den) : null;
+      if (regStart) regStart.setHours(0, 0, 0, 0);
+      if (regEnd) regEnd.setHours(23, 59, 59, 999);
+      const can_select = !!(regStart && regEnd && now >= regStart && now <= regEnd);
+      return {
+        ...b,
+        registered_count: Number(b.registered_count || 0),
+        is_selected: selectedBatchIds.includes(b.id),
+        can_select
+      };
+    });
+
+    res.json({ success: true, data: { batches: result, selectedBatchId } });
+  } catch (error) {
+    console.error('Error in GET /api/sinh-vien/available-batches:', error);
+    res.status(500).json({ success: false, message: 'Lỗi server khi tải danh sách đợt thực tập' });
+  }
+});
+
+// POST /api/sinh-vien/select-batch - Sinh viên chọn đợt thực tập
+router.post('/select-batch', authenticateToken, async (req, res) => {
+  try {
+    const { dot_thuc_tap_id } = req.body;
+    if (!dot_thuc_tap_id) {
+      return res.status(400).json({ success: false, message: 'Vui lòng chọn đợt thực tập' });
+    }
+
+    const batchId = Number(dot_thuc_tap_id);
+    const [batch] = await connection.query(
+      'SELECT id, ten_dot, thoi_gian_dang_ky_tu, thoi_gian_dang_ky_den, trang_thai FROM dot_thuc_tap WHERE id = ?',
+      [batchId]
+    );
+    if (!batch) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy đợt thực tập' });
+    }
+
+    const now = new Date();
+    const regStart = batch.thoi_gian_dang_ky_tu ? new Date(batch.thoi_gian_dang_ky_tu) : null;
+    const regEnd = batch.thoi_gian_dang_ky_den ? new Date(batch.thoi_gian_dang_ky_den) : null;
+    if (regStart) regStart.setHours(0, 0, 0, 0);
+    if (regEnd) regEnd.setHours(23, 59, 59, 999);
+    if (!regStart || !regEnd || now < regStart || now > regEnd) {
+      return res.status(403).json({
+        success: false,
+        message: `Đợt "${batch.ten_dot}" hiện không trong thời gian đăng ký`
+      });
+    }
+
+    const { student } = await resolveStudentFromAuthUser(req.user || {});
+    if (!student || !student.ma_sinh_vien) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy thông tin sinh viên' });
+    }
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sinh_vien_thuc_tap (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        ma_sinh_vien VARCHAR(20) NOT NULL,
+        dot_thuc_tap_id INT NOT NULL,
+        ngay_dang_ky TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        trang_thai ENUM('dang-ky', 'duoc-phan-cong', 'hoan-thanh', 'huy') DEFAULT 'dang-ky',
+        INDEX idx_ma_sinh_vien (ma_sinh_vien),
+        INDEX idx_dot_thuc_tap (dot_thuc_tap_id),
+        UNIQUE KEY unique_sinh_vien_dot (ma_sinh_vien, dot_thuc_tap_id),
+        FOREIGN KEY (dot_thuc_tap_id) REFERENCES dot_thuc_tap(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+
+    await connection.query(
+      `INSERT INTO sinh_vien_thuc_tap (ma_sinh_vien, dot_thuc_tap_id, trang_thai)
+       VALUES (?, ?, 'dang-ky')
+       ON DUPLICATE KEY UPDATE ngay_dang_ky = NOW()`,
+      [student.ma_sinh_vien, batchId]
+    );
+
+    const [countRow] = await connection.query(
+      'SELECT COUNT(*) AS count FROM sinh_vien_thuc_tap WHERE dot_thuc_tap_id = ?',
+      [batchId]
+    );
+    await connection.query(
+      'UPDATE dot_thuc_tap SET so_sinh_vien_tham_gia = ? WHERE id = ?',
+      [Number(countRow?.count || 0), batchId]
+    );
+
+    res.json({ success: true, message: `Đã chọn đợt thực tập "${batch.ten_dot}" thành công` });
+  } catch (error) {
+    console.error('Error in POST /api/sinh-vien/select-batch:', error);
+    res.status(500).json({ success: false, message: 'Lỗi server khi chọn đợt thực tập' });
+  }
+});
+
 // POST /api/sinh-vien/register-internship - Student registers for internship
 router.post('/register-internship', authenticateToken, upload.single('cv_file'), async (req, res) => {
   try {
-    const batchStatus = await RegistrationController.getStatusFromInternshipBatch();
-    if (batchStatus) {
-      if (!batchStatus.is_open) {
-        return res.status(403).json({
-          success: false,
-          message: batchStatus.message || 'Ngoài thời gian cho phép chỉnh sửa nguyện vọng thực tập',
-          data: {
-            status: batchStatus.status,
-            period: batchStatus.period || null,
-            timeUntilStart: batchStatus.timeUntilStart || null,
-            timeUntilEnd: batchStatus.timeUntilEnd || null
-          }
-        });
+    const { dot_thuc_tap_id } = req.body;
+    const selectedBatchId = dot_thuc_tap_id ? Number(dot_thuc_tap_id) : null;
+
+    if (selectedBatchId) {
+      // Validate that the selected batch has an open registration period
+      const [selectedBatch] = await connection.query(
+        'SELECT id, ten_dot, trang_thai, thoi_gian_dang_ky_tu, thoi_gian_dang_ky_den FROM dot_thuc_tap WHERE id = ?',
+        [selectedBatchId]
+      );
+      if (!selectedBatch) {
+        return res.status(400).json({ success: false, message: 'Đợt thực tập không tồn tại' });
+      }
+      if (selectedBatch.thoi_gian_dang_ky_tu && selectedBatch.thoi_gian_dang_ky_den) {
+        const now = new Date();
+        const regStart = new Date(selectedBatch.thoi_gian_dang_ky_tu);
+        regStart.setHours(0, 0, 0, 0);
+        const regEnd = new Date(selectedBatch.thoi_gian_dang_ky_den);
+        regEnd.setHours(23, 59, 59, 999);
+        if (now < regStart || now > regEnd) {
+          return res.status(403).json({
+            success: false,
+            message: `Đợt "${selectedBatch.ten_dot}" hiện không trong thời gian đăng ký`
+          });
+        }
       }
     } else {
-      const isOpen = await RegistrationPeriod.isRegistrationOpen();
-      if (!isOpen) {
-        const status = await RegistrationPeriod.getRegistrationStatus();
-        return res.status(403).json({
-          success: false,
-          message: status?.message || 'Ngoài thời gian cho phép chỉnh sửa nguyện vọng thực tập',
-          data: {
-            status: status?.status || 'closed',
-            period: status?.period || null,
-            timeUntilStart: status?.timeUntilStart || null,
-            timeUntilEnd: status?.timeUntilEnd || null
-          }
-        });
+      const batchStatus = await RegistrationController.getStatusFromInternshipBatch();
+      if (batchStatus) {
+        if (!batchStatus.is_open) {
+          return res.status(403).json({
+            success: false,
+            message: batchStatus.message || 'Ngoài thời gian cho phép chỉnh sửa nguyện vọng thực tập',
+            data: {
+              status: batchStatus.status,
+              period: batchStatus.period || null,
+              timeUntilStart: batchStatus.timeUntilStart || null,
+              timeUntilEnd: batchStatus.timeUntilEnd || null
+            }
+          });
+        }
+      } else {
+        const isOpen = await RegistrationPeriod.isRegistrationOpen();
+        if (!isOpen) {
+          const status = await RegistrationPeriod.getRegistrationStatus();
+          return res.status(403).json({
+            success: false,
+            message: status?.message || 'Ngoài thời gian cho phép chỉnh sửa nguyện vọng thực tập',
+            data: {
+              status: status?.status || 'closed',
+              period: status?.period || null,
+              timeUntilStart: status?.timeUntilStart || null,
+              timeUntilEnd: status?.timeUntilEnd || null
+            }
+          });
+        }
       }
     }
 
@@ -1068,7 +1243,7 @@ router.post('/register-internship', authenticateToken, upload.single('cv_file'),
     }
 
     try {
-      await syncStudentToCurrentBatch(userKeyForUpdate);
+      await syncStudentToCurrentBatch(userKeyForUpdate, selectedBatchId);
     } catch (syncError) {
       console.warn('Warning: failed to sync student registration to internship batch:', syncError.message || syncError);
     }

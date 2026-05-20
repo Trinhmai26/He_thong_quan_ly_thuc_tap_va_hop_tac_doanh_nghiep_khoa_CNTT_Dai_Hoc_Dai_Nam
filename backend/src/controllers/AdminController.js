@@ -1,5 +1,6 @@
 const connection = require('../database/connection');
 const { createNotification, ensureNotificationsTable } = require('../utils/notificationHelper');
+const { sendApprovalEmail, sendKhoaGioiThieuAssignmentEmail } = require('../services/EmailService');
 
 class AdminController {
   // Get internship batches with company registration statistics
@@ -373,26 +374,46 @@ class AdminController {
           }
         }
 
-        // Gửi thông báo đến sinh viên
+        // Gửi thông báo hệ thống + email đến sinh viên
         try {
           await ensureNotificationsTable();
           const svRows = await connection.query(
-            'SELECT account_id FROM sinh_vien WHERE id = ? LIMIT 1',
+            'SELECT account_id, ho_ten, ma_sinh_vien, email_ca_nhan, vi_tri_muon_ung_tuyen_thuc_tap, cong_ty_tu_lien_he, don_vi_thuc_tap, nguyen_vong_thuc_tap FROM sinh_vien WHERE id = ? LIMIT 1',
             [sinhVienId]
           );
-          if (svRows && svRows.length > 0 && svRows[0].account_id) {
-            await createNotification(
-              svRows[0].account_id,
-              'Đăng ký thực tập đã được duyệt',
-              'Chúc mừng! Đăng ký thực tập của bạn đã được quản trị viên duyệt.' +
-                (noteValue ? ` Ghi chú: ${noteValue}` : '') +
-                ' Vui lòng theo dõi thông tin thực tập trong hệ thống.',
-              'success',
-              'registration_approved'
-            );
+          if (svRows && svRows.length > 0) {
+            const sv = svRows[0];
+            const tenCongTy = sv.cong_ty_tu_lien_he || sv.don_vi_thuc_tap || '';
+            const nguyenVongLabel = sv.nguyen_vong_thuc_tap === 'tu_lien_he' ? 'Tự liên hệ' : sv.nguyen_vong_thuc_tap === 'khoa_gioi_thieu' ? 'Khoa giới thiệu' : '';
+
+            // Thông báo trong hệ thống
+            if (sv.account_id) {
+              await createNotification(
+                sv.account_id,
+                'Đăng ký thực tập đã được duyệt',
+                'Chúc mừng! Đăng ký thực tập của bạn đã được quản trị viên duyệt.' +
+                  (noteValue ? ` Ghi chú: ${noteValue}` : '') +
+                  ' Vui lòng theo dõi thông tin thực tập trong hệ thống.',
+                'success',
+                'registration_approved'
+              );
+            }
+
+            // Gửi email
+            if (sv.email_ca_nhan) {
+              await sendApprovalEmail({
+                studentEmail: sv.email_ca_nhan,
+                studentName: sv.ho_ten || '',
+                studentCode: sv.ma_sinh_vien || '',
+                companyName: tenCongTy,
+                position: sv.vi_tri_muon_ung_tuyen_thuc_tap || '',
+                nguyenVong: nguyenVongLabel,
+                ghiChu: noteValue
+              });
+            }
           }
         } catch (notifErr) {
-          console.error('Lỗi gửi thông báo duyệt SV:', notifErr);
+          console.error('Lỗi gửi thông báo/email duyệt SV:', notifErr);
         }
 
         return res.json({
@@ -460,26 +481,44 @@ class AdminController {
         }
       }
 
-      // Gửi thông báo đến sinh viên (legacy path)
+      // Gửi thông báo hệ thống + email đến sinh viên (legacy path)
       try {
         await ensureNotificationsTable();
         const svRows = await connection.query(
-          'SELECT account_id FROM sinh_vien WHERE id = ? LIMIT 1',
+          'SELECT account_id, ho_ten, ma_sinh_vien, email_ca_nhan, vi_tri_muon_ung_tuyen_thuc_tap, cong_ty_tu_lien_he, don_vi_thuc_tap, nguyen_vong_thuc_tap FROM sinh_vien WHERE id = ? LIMIT 1',
           [sinhVienId]
         );
-        if (svRows && svRows.length > 0 && svRows[0].account_id) {
-          await createNotification(
-            svRows[0].account_id,
-            'Đăng ký thực tập đã được duyệt',
-            'Chúc mừng! Đăng ký thực tập của bạn đã được quản trị viên duyệt.' +
-              (noteValue ? ` Ghi chú: ${noteValue}` : '') +
-              ' Vui lòng theo dõi thông tin thực tập trong hệ thống.',
-            'success',
-            'registration_approved'
-          );
+        if (svRows && svRows.length > 0) {
+          const sv = svRows[0];
+          const tenCongTy = sv.cong_ty_tu_lien_he || sv.don_vi_thuc_tap || '';
+          const nguyenVongLabel = sv.nguyen_vong_thuc_tap === 'tu_lien_he' ? 'Tự liên hệ' : sv.nguyen_vong_thuc_tap === 'khoa_gioi_thieu' ? 'Khoa giới thiệu' : '';
+
+          if (sv.account_id) {
+            await createNotification(
+              sv.account_id,
+              'Đăng ký thực tập đã được duyệt',
+              'Chúc mừng! Đăng ký thực tập của bạn đã được quản trị viên duyệt.' +
+                (noteValue ? ` Ghi chú: ${noteValue}` : '') +
+                ' Vui lòng theo dõi thông tin thực tập trong hệ thống.',
+              'success',
+              'registration_approved'
+            );
+          }
+
+          if (sv.email_ca_nhan) {
+            await sendApprovalEmail({
+              studentEmail: sv.email_ca_nhan,
+              studentName: sv.ho_ten || '',
+              studentCode: sv.ma_sinh_vien || '',
+              companyName: tenCongTy,
+              position: sv.vi_tri_muon_ung_tuyen_thuc_tap || '',
+              nguyenVong: nguyenVongLabel,
+              ghiChu: noteValue
+            });
+          }
         }
       } catch (notifErr) {
-        console.error('Lỗi gửi thông báo duyệt SV (legacy):', notifErr);
+        console.error('Lỗi gửi thông báo/email duyệt SV (legacy):', notifErr);
       }
 
       return res.json({
@@ -492,6 +531,365 @@ class AdminController {
         success: false,
         message: 'Loi server khi duyet dang ky sinh vien'
       });
+    }
+  }
+
+  // Bulk approve students by internship preference (tu_lien_he or khoa_gioi_thieu)
+  static async bulkApproveByPreference(req, res) {
+    const { query } = require('../database/connection');
+    try {
+      const { nguyen_vong } = req.body || {};
+      if (!nguyen_vong || !['tu_lien_he', 'khoa_gioi_thieu'].includes(nguyen_vong)) {
+        return res.status(400).json({ success: false, message: 'nguyen_vong phải là tu_lien_he hoặc khoa_gioi_thieu' });
+      }
+
+      const dbNguyenVong = nguyen_vong === 'tu_lien_he' ? 'tu-lien-he' : 'khoa-gioi-thieu';
+      const prefLabel = nguyen_vong === 'tu_lien_he' ? 'Tự liên hệ' : 'Khoa giới thiệu';
+
+      // Get all matching students with account_id for notifications
+      const students = await query(
+        `SELECT sv.id, sv.account_id, sv.ho_ten, sv.ma_sinh_vien, sv.email_ca_nhan, sv.vi_tri_muon_ung_tuyen_thuc_tap, sv.cong_ty_tu_lien_he, sv.don_vi_thuc_tap
+         FROM sinh_vien sv
+         WHERE sv.nguyen_vong_thuc_tap = ?`,
+        [nguyen_vong]
+      );
+
+      if (!students || students.length === 0) {
+        return res.json({ success: true, message: 'Không có sinh viên nào phù hợp', approved: 0, updated: 0 });
+      }
+
+      let inserted = 0;
+      let updated = 0;
+      const now = new Date();
+
+      for (const sv of students) {
+        const existing = await query(
+          'SELECT id FROM dang_ky_thuc_tap_sinh_vien WHERE sinh_vien_id = ? ORDER BY id DESC LIMIT 1',
+          [sv.id]
+        );
+
+        const tenCongTy = sv.cong_ty_tu_lien_he || sv.don_vi_thuc_tap || '';
+        const viTri = sv.vi_tri_muon_ung_tuyen_thuc_tap || '';
+
+        if (!existing || existing.length === 0) {
+          await query(
+            `INSERT INTO dang_ky_thuc_tap_sinh_vien
+              (sinh_vien_id, nguyen_vong_thuc_tap, vi_tri_thuc_tap_mong_muon, ten_cong_ty, trang_thai, workflow_status_v2, ngay_duyet, created_at, updated_at)
+             VALUES (?, ?, ?, ?, 'da-duyet', 'APPROVED', ?, NOW(), NOW())`,
+            [sv.id, dbNguyenVong, viTri, tenCongTy, now]
+          );
+          inserted++;
+        } else {
+          await query(
+            `UPDATE dang_ky_thuc_tap_sinh_vien
+             SET trang_thai = 'da-duyet', workflow_status_v2 = 'APPROVED', ngay_duyet = ?, updated_at = NOW()
+             WHERE id = ?`,
+            [now, existing[0].id]
+          );
+          updated++;
+        }
+
+        // Gửi thông báo hệ thống + email cho sinh viên
+        try {
+          const companyMsg = tenCongTy ? ` tại ${tenCongTy}` : '';
+
+          if (sv.account_id) {
+            await createNotification(
+              sv.account_id,
+              'Đăng ký thực tập đã được duyệt',
+              `Chúc mừng! Đăng ký thực tập của bạn (${prefLabel}${companyMsg}) đã được quản trị viên duyệt. Vui lòng theo dõi thông tin thực tập trong hệ thống.`,
+              'success',
+              'registration_approved'
+            );
+          }
+
+          if (sv.email_ca_nhan) {
+            await sendApprovalEmail({
+              studentEmail: sv.email_ca_nhan,
+              studentName: sv.ho_ten || '',
+              studentCode: sv.ma_sinh_vien || '',
+              companyName: tenCongTy,
+              position: sv.vi_tri_muon_ung_tuyen_thuc_tap || '',
+              nguyenVong: prefLabel,
+              ghiChu: null
+            });
+          }
+        } catch (notifErr) {
+          console.error(`Lỗi gửi thông báo/email cho SV id=${sv.id}:`, notifErr.message);
+        }
+      }
+
+      return res.json({
+        success: true,
+        message: `Đã duyệt ${inserted + updated} sinh viên (${inserted} mới, ${updated} cập nhật)`,
+        approved: inserted,
+        updated
+      });
+    } catch (error) {
+      console.error('Error in bulkApproveByPreference:', error);
+      return res.status(500).json({ success: false, message: 'Lỗi server khi duyệt hàng loạt: ' + error.message });
+    }
+  }
+
+  // Chẩn đoán: xem giá trị thực tế trong DB cho nhóm Khoa giới thiệu
+  static async diagnoseKhoaGioiThieu(req, res) {
+    try {
+      const formats = await connection.query(
+        `SELECT nguyen_vong_thuc_tap, COUNT(*) AS so_luong
+         FROM sinh_vien
+         WHERE nguyen_vong_thuc_tap IS NOT NULL AND nguyen_vong_thuc_tap != ''
+         GROUP BY nguyen_vong_thuc_tap
+         ORDER BY so_luong DESC`,
+        []
+      );
+
+      const needAssign = await connection.query(
+        `SELECT COUNT(*) AS cnt FROM sinh_vien
+         WHERE nguyen_vong_thuc_tap IN ('khoa_gioi_thieu', 'khoa-gioi-thieu')
+           AND (don_vi_thuc_tap IS NULL OR don_vi_thuc_tap = '')`,
+        []
+      );
+
+      const alreadyAssigned = await connection.query(
+        `SELECT COUNT(*) AS cnt FROM sinh_vien
+         WHERE nguyen_vong_thuc_tap IN ('khoa_gioi_thieu', 'khoa-gioi-thieu')
+           AND don_vi_thuc_tap IS NOT NULL AND don_vi_thuc_tap != ''`,
+        []
+      );
+
+      const companies = await connection.query(
+        `SELECT COUNT(*) AS cnt FROM doanh_nghiep
+         WHERE ten_cong_ty IS NOT NULL AND ten_cong_ty != ''`,
+        []
+      );
+
+      const sample = await connection.query(
+        `SELECT sv.ma_sinh_vien, sv.ho_ten, sv.nguyen_vong_thuc_tap, sv.don_vi_thuc_tap,
+                dk.trang_thai, dk.workflow_status_v2
+         FROM sinh_vien sv
+         LEFT JOIN (
+           SELECT sinh_vien_id, trang_thai, workflow_status_v2
+           FROM dang_ky_thuc_tap_sinh_vien
+           WHERE id IN (SELECT MAX(id) FROM dang_ky_thuc_tap_sinh_vien GROUP BY sinh_vien_id)
+         ) dk ON dk.sinh_vien_id = sv.id
+         WHERE sv.nguyen_vong_thuc_tap IN ('khoa_gioi_thieu', 'khoa-gioi-thieu')
+         ORDER BY sv.id
+         LIMIT 5`,
+        []
+      );
+
+      return res.json({
+        success: true,
+        diagnosis: {
+          formats_in_db: formats,
+          sinh_vien_can_gan: Number(needAssign[0]?.cnt || 0),
+          sinh_vien_da_co_dn: Number(alreadyAssigned[0]?.cnt || 0),
+          tong_doanh_nghiep: Number(companies[0]?.cnt || 0),
+          mau_5_sinh_vien: sample
+        }
+      });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  // Auto-assign company for khoa_gioi_thieu students + send in-app notification + email
+  static async autoAssignCompanyForKhoaGioiThieu(req, res) {
+    const log = { assigned: [], skipped_has_company: [], skipped_no_preference: [], emails_ok: [], emails_skipped: [], emails_fail: [], notif_ok: [], notif_skip: [] };
+
+    try {
+      // ── 1. Lấy sinh viên đủ điều kiện ──────────────────────────────────────
+      // Hỗ trợ cả 'khoa_gioi_thieu' (underscore, lưu bởi UI form) VÀ 'khoa-gioi-thieu' (hyphen, lưu bởi ExcelImportService)
+      const students = await connection.query(
+        `SELECT sv.id, sv.account_id, sv.ho_ten, sv.ma_sinh_vien, sv.email_ca_nhan,
+                sv.vi_tri_muon_ung_tuyen_thuc_tap
+         FROM sinh_vien sv
+         WHERE sv.nguyen_vong_thuc_tap IN ('khoa_gioi_thieu', 'khoa-gioi-thieu')
+           AND (sv.don_vi_thuc_tap IS NULL OR sv.don_vi_thuc_tap = '')
+           AND NOT EXISTS (
+             SELECT 1 FROM dang_ky_thuc_tap_sinh_vien dk
+             WHERE dk.sinh_vien_id = sv.id
+               AND dk.workflow_status_v2 IN ('REJECTED','FAIL')
+               AND dk.id = (SELECT MAX(dk2.id) FROM dang_ky_thuc_tap_sinh_vien dk2 WHERE dk2.sinh_vien_id = sv.id)
+           )
+         ORDER BY sv.id`,
+        []
+      );
+
+      console.log(`[AutoAssign] Tổng sinh viên đủ điều kiện: ${students?.length || 0}`);
+
+      if (!students || students.length === 0) {
+        return res.json({
+          success: true,
+          message: 'Không có sinh viên "Khoa giới thiệu" nào cần gán doanh nghiệp',
+          assigned: 0, log
+        });
+      }
+
+      // ── 2. Lấy danh sách doanh nghiệp ──────────────────────────────────────
+      const companies = await connection.query(
+        `SELECT id, ten_cong_ty, so_luong_nhan_thuc_tap
+         FROM doanh_nghiep
+         WHERE ten_cong_ty IS NOT NULL AND ten_cong_ty != ''
+         ORDER BY id ASC`,
+        []
+      );
+
+      console.log(`[AutoAssign] Tổng doanh nghiệp có sẵn: ${companies?.length || 0}`);
+
+      if (!companies || companies.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Không có doanh nghiệp nào trong hệ thống. Vui lòng thêm doanh nghiệp trước.'
+        });
+      }
+
+      // Pool round-robin (capacity=0 = không giới hạn)
+      const pool = companies.map(c => ({
+        ten_cong_ty: c.ten_cong_ty,
+        capacity: Number(c.so_luong_nhan_thuc_tap) > 0 ? Number(c.so_luong_nhan_thuc_tap) : 0,
+        assigned: 0
+      }));
+
+      await ensureNotificationsTable();
+      const now = new Date();
+      let poolIdx = 0;
+
+      // ── 3. Vòng lặp gán từng sinh viên ─────────────────────────────────────
+      for (const sv of students) {
+        // Tìm công ty tiếp theo còn slot (round-robin, overflow cho phép)
+        let loops = 0;
+        while (loops < pool.length && pool[poolIdx % pool.length].capacity > 0 && pool[poolIdx % pool.length].assigned >= pool[poolIdx % pool.length].capacity) {
+          poolIdx++; loops++;
+        }
+        const company = pool[poolIdx % pool.length];
+        company.assigned++;
+        poolIdx++;
+
+        const viTri = sv.vi_tri_muon_ung_tuyen_thuc_tap || '';
+
+        // 3a. Cập nhật sinh_vien.don_vi_thuc_tap
+        await connection.query(
+          `UPDATE sinh_vien SET don_vi_thuc_tap = ?, updated_at = NOW() WHERE id = ?`,
+          [company.ten_cong_ty, sv.id]
+        );
+
+        // 3b. Upsert dang_ky_thuc_tap_sinh_vien
+        const existing = await connection.query(
+          'SELECT id FROM dang_ky_thuc_tap_sinh_vien WHERE sinh_vien_id = ? ORDER BY id DESC LIMIT 1',
+          [sv.id]
+        );
+
+        const upsert = async (withV2) => {
+          if (existing && existing.length > 0) {
+            const sql = withV2
+              ? `UPDATE dang_ky_thuc_tap_sinh_vien
+                 SET trang_thai = 'da-duyet', workflow_status_v2 = 'APPROVED',
+                     nguyen_vong_thuc_tap = 'khoa-gioi-thieu',
+                     ten_cong_ty = ?, vi_tri_thuc_tap_mong_muon = ?,
+                     ngay_duyet = ?, updated_at = NOW()
+                 WHERE id = ?`
+              : `UPDATE dang_ky_thuc_tap_sinh_vien
+                 SET trang_thai = 'da-duyet', nguyen_vong_thuc_tap = 'khoa-gioi-thieu',
+                     ten_cong_ty = ?, vi_tri_thuc_tap_mong_muon = ?,
+                     ngay_duyet = ?, updated_at = NOW()
+                 WHERE id = ?`;
+            await connection.query(sql, [company.ten_cong_ty, viTri, now, existing[0].id]);
+          } else {
+            const sql = withV2
+              ? `INSERT INTO dang_ky_thuc_tap_sinh_vien
+                   (sinh_vien_id, nguyen_vong_thuc_tap, vi_tri_thuc_tap_mong_muon, ten_cong_ty,
+                    trang_thai, workflow_status_v2, ngay_duyet, created_at, updated_at)
+                 VALUES (?, 'khoa-gioi-thieu', ?, ?, 'da-duyet', 'APPROVED', ?, NOW(), NOW())`
+              : `INSERT INTO dang_ky_thuc_tap_sinh_vien
+                   (sinh_vien_id, nguyen_vong_thuc_tap, vi_tri_thuc_tap_mong_muon, ten_cong_ty,
+                    trang_thai, ngay_duyet, created_at, updated_at)
+                 VALUES (?, 'khoa-gioi-thieu', ?, ?, 'da-duyet', ?, NOW(), NOW())`;
+            await connection.query(sql, [sv.id, viTri, company.ten_cong_ty, now]);
+          }
+        };
+
+        try { await upsert(true); }
+        catch (e) {
+          if (e?.code !== 'ER_BAD_FIELD_ERROR' && e?.errno !== 1054) throw e;
+          await upsert(false);
+        }
+
+        log.assigned.push({ ma: sv.ma_sinh_vien, ho_ten: sv.ho_ten, company: company.ten_cong_ty });
+        console.log(`[AutoAssign] ✓ ${sv.ma_sinh_vien} - ${sv.ho_ten} → ${company.ten_cong_ty}`);
+
+        // 3c. Thông báo trong hệ thống (chống trùng lặp theo action_type)
+        if (sv.account_id) {
+          try {
+            const dupCheck = await connection.query(
+              `SELECT id FROM notifications
+               WHERE receiver_id = ? AND action_type = 'company_auto_assigned'
+               LIMIT 1`,
+              [sv.account_id]
+            );
+
+            if (!dupCheck || dupCheck.length === 0) {
+              await createNotification(
+                sv.account_id,
+                'Thông báo doanh nghiệp thực tập',
+                `Bạn đã được khoa giới thiệu doanh nghiệp thực tập: ${company.ten_cong_ty}. Hồ sơ của bạn đã được chuyển sang bước Doanh nghiệp phỏng vấn. Vui lòng theo dõi thông báo tiếp theo.`,
+                'success',
+                'company_auto_assigned'
+              );
+              log.notif_ok.push(sv.ma_sinh_vien);
+            } else {
+              log.notif_skip.push(sv.ma_sinh_vien);
+            }
+          } catch (notifErr) {
+            console.error(`[AutoAssign] Lỗi thông báo SV ${sv.ma_sinh_vien}:`, notifErr.message);
+          }
+        }
+
+        // 3d. Gửi email (chỉ gửi nếu có email và không phải email tự sinh)
+        const isAutoEmail = sv.email_ca_nhan && /^\d+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(sv.email_ca_nhan);
+        if (sv.email_ca_nhan && !isAutoEmail) {
+          try {
+            const emailResult = await sendKhoaGioiThieuAssignmentEmail({
+              studentEmail: sv.email_ca_nhan,
+              studentName: sv.ho_ten || '',
+              studentCode: sv.ma_sinh_vien || '',
+              companyName: company.ten_cong_ty,
+              position: viTri
+            });
+            if (emailResult?.skipped) {
+              log.emails_skipped.push({ email: sv.email_ca_nhan, reason: emailResult.reason || 'SKIPPED' });
+            } else {
+              log.emails_ok.push(sv.email_ca_nhan);
+            }
+          } catch (mailErr) {
+            log.emails_fail.push({ email: sv.email_ca_nhan, error: mailErr.message });
+            console.error(`[AutoAssign] Lỗi gửi email ${sv.email_ca_nhan}:`, mailErr.message);
+          }
+        } else {
+          log.emails_skipped.push({ email: sv.email_ca_nhan || '(không có email)', reason: 'AUTO_OR_EMPTY_EMAIL' });
+        }
+      }
+
+      const companiesUsed = pool.filter(c => c.assigned > 0).length;
+      console.log(`[AutoAssign] Hoàn tất: ${log.assigned.length} sinh viên được gán, ${companiesUsed} doanh nghiệp được dùng`);
+      console.log(`[AutoAssign] Email OK: ${log.emails_ok.length}, Skipped: ${log.emails_skipped.length}, Fail: ${log.emails_fail.length}`);
+      console.log(`[AutoAssign] Thông báo tạo: ${log.notif_ok.length}, Bỏ qua (trùng): ${log.notif_skip.length}`);
+
+      return res.json({
+        success: true,
+        message: `Đã gán doanh nghiệp cho ${log.assigned.length} sinh viên "Khoa giới thiệu" và chuyển sang bước "Doanh nghiệp phỏng vấn"`,
+        assigned: log.assigned.length,
+        companies_used: companiesUsed,
+        emails_sent: log.emails_ok.length,
+        emails_skipped: log.emails_skipped.length,
+        emails_failed: log.emails_fail.length,
+        notifications_created: log.notif_ok.length,
+        notifications_skipped_duplicate: log.notif_skip.length,
+        log
+      });
+    } catch (error) {
+      console.error('[AutoAssign] Lỗi:', error);
+      return res.status(500).json({ success: false, message: 'Lỗi server: ' + error.message });
     }
   }
 
@@ -767,17 +1165,23 @@ class AdminController {
       const allowedRanges = new Set(['today', 'week', 'all']);
       const requestedRange = req.query?.range;
       const range = allowedRanges.has(requestedRange) ? requestedRange : 'today';
+      const dotThucTapId = req.query.dot_thuc_tap_id ? parseInt(req.query.dot_thuc_tap_id) : null;
+      // dot_thuc_tap_admin: 'dot-1' | 'dot-2' (đợt nhỏ)
+      const allowedDotNho = new Set(['dot-1', 'dot-2']);
+      const rawDotNho = String(req.query.dot_thuc_tap_admin || '').trim();
+      const dotThucTapAdmin = allowedDotNho.has(rawDotNho) ? rawDotNho : null;
+      // Chỉ lọc theo đợt nhỏ khi đã chọn đợt lớn
+      const hasFullFilter = dotThucTapId && dotThucTapAdmin;
 
+      // Tất cả lỗi SQL đều trả 0 - không bao giờ throw từ helper này
       const countRows = async (sql, params = []) => {
         try {
           const rows = await connection.query(sql, params);
           const first = Array.isArray(rows) && rows.length > 0 ? rows[0] : {};
           return Number(first.total ?? first.count ?? first.cnt ?? Object.values(first)[0] ?? 0) || 0;
         } catch (queryError) {
-          if (queryError?.code === 'ER_NO_SUCH_TABLE' || queryError?.errno === 1146) {
-            return 0;
-          }
-          throw queryError;
+          console.warn('[Dashboard] countRows failed (returning 0):', queryError.code || queryError.message, '| SQL:', sql.slice(0, 120));
+          return 0;
         }
       };
 
@@ -788,10 +1192,8 @@ class AdminController {
           const value = first.value ?? first.avg ?? first.total ?? Object.values(first)[0] ?? null;
           return value === null || value === undefined ? null : Number(value);
         } catch (queryError) {
-          if (queryError?.code === 'ER_NO_SUCH_TABLE' || queryError?.errno === 1146) {
-            return null;
-          }
-          throw queryError;
+          console.warn('[Dashboard] numberValue failed (returning null):', queryError.code || queryError.message, '| SQL:', sql.slice(0, 120));
+          return null;
         }
       };
 
@@ -813,72 +1215,228 @@ class AdminController {
         `YEARWEEK(${column}, 1) = YEARWEEK(CURDATE() - INTERVAL 7 DAY, 1)`
       );
 
-      const [
-        totalStudents,
-        totalLecturers,
-        totalCompanies,
-        activeInternships,
-        rangeReports,
-        rangeGrading,
-        rangeAverageScore,
-        studentRegistrationActivities,
-        assignmentActivities,
-        totalReports,
-        totalGradedReports,
-        totalAverageScore,
-        activeReportStudents,
-        previousWeekReports,
-        totalBatches,
-        activeBatches,
-        totalCompanyRegistrations,
-        pendingCompanyApprovals,
-        totalStudentRegistrations,
-        pendingStudentApprovals,
-        rejectedStudents
-      ] = await Promise.all([
-        countRows('SELECT COUNT(*) AS total FROM sinh_vien'),
-        countRows('SELECT COUNT(*) AS total FROM giang_vien'),
-        countRows('SELECT COUNT(*) AS total FROM doanh_nghiep'),
-        countRows(`
-          SELECT COUNT(DISTINCT sv.id) AS total
-          FROM sinh_vien sv
-          LEFT JOIN phan_cong_thuc_tap pct ON pct.sinh_vien_id = sv.id
-          LEFT JOIN dang_ky_thuc_tap_sinh_vien dk ON dk.sinh_vien_id = sv.id
-          WHERE pct.trang_thai IN ('dang-dien-ra', 'dang_thuc_tap', 'dang-thuc-tap')
-             OR sv.trang_thai_phan_cong = 'da-phan-cong'
-             OR NULLIF(TRIM(COALESCE(sv.don_vi_thuc_tap, '')), '') IS NOT NULL
-             OR dk.trang_thai = 'da-duyet'
-             OR dk.workflow_status IN ('DA_DUYET', 'DANG_THUC_TAP')
-             OR dk.workflow_status_v2 IN ('APPROVED', 'PASS')
-        `),
-        countRows(`SELECT COUNT(*) AS total FROM bai_nop_cua_sinh_vien WHERE ${rangeCondition('submitted_at')}`),
-        countRows(`
-          SELECT COUNT(*) AS total
-          FROM diem_theo_dot_nop
-          WHERE diem_giang_vien IS NOT NULL
-            AND ${rangeCondition('updated_at')}
-        `),
-        numberValue(`
-          SELECT AVG(diem_giang_vien) AS value
-          FROM diem_theo_dot_nop
-          WHERE diem_giang_vien IS NOT NULL
-            AND ${rangeCondition('updated_at')}
-        `),
-        countRows(`SELECT COUNT(*) AS total FROM dang_ky_thuc_tap_sinh_vien WHERE ${rangeCondition('created_at')}`),
-        countRows(`SELECT COUNT(*) AS total FROM phan_cong_thuc_tap WHERE ${rangeCondition('created_at')}`),
-        countRows('SELECT COUNT(*) AS total FROM bai_nop_cua_sinh_vien'),
-        countRows('SELECT COUNT(*) AS total FROM diem_theo_dot_nop WHERE diem_giang_vien IS NOT NULL'),
-        numberValue('SELECT AVG(diem_giang_vien) AS value FROM diem_theo_dot_nop WHERE diem_giang_vien IS NOT NULL'),
-        countRows('SELECT COUNT(DISTINCT ma_sinh_vien) AS total FROM bai_nop_cua_sinh_vien'),
-        countRows(`SELECT COUNT(*) AS total FROM bai_nop_cua_sinh_vien WHERE ${previousWeekCondition('submitted_at')}`),
+      // Tổng số đợt thực tập (luôn là hệ thống - dùng cho thống kê đợt)
+      const [totalBatches, activeBatches] = await Promise.all([
         countRows('SELECT COUNT(*) AS total FROM dot_thuc_tap'),
         countRows("SELECT COUNT(*) AS total FROM dot_thuc_tap WHERE trang_thai = 'dang-mo'"),
-        countRowsIfTableExists('dang_ky_doanh_nghiep', 'SELECT COUNT(*) AS total FROM dang_ky_doanh_nghiep'),
-        countRowsIfTableExists('dang_ky_doanh_nghiep', "SELECT COUNT(*) AS total FROM dang_ky_doanh_nghiep WHERE trang_thai = 'cho-duyet'"),
-        countRows('SELECT COUNT(*) AS total FROM dang_ky_thuc_tap_sinh_vien'),
-        countRows("SELECT COUNT(*) AS total FROM dang_ky_thuc_tap_sinh_vien WHERE trang_thai IN ('dang_ky', 'cho-duyet')"),
-        countRows("SELECT COUNT(*) AS total FROM dang_ky_thuc_tap_sinh_vien WHERE trang_thai IN ('bi-tu-choi', 'bi_tu_choi', 'tu-choi')")
       ]);
+
+      // 4 ô overview + thống kê hoạt động – khi chọn đợt thì lọc theo đợt
+      let totalStudents, totalLecturers, totalCompanies,
+          rangeReports, rangeGrading, rangeAverageScore,
+          studentRegistrationActivities, assignmentActivities,
+          totalReports, totalGradedReports, totalAverageScore,
+          activeReportStudents, previousWeekReports, activeInternships,
+          totalCompanyRegistrations, pendingCompanyApprovals,
+          totalStudentRegistrations, pendingStudentApprovals, rejectedStudents;
+
+      if (dotThucTapId) {
+        // ── Lấy scope của đợt lớn để lọc đúng sinh viên ──────────────────────
+        // (giống InternshipBatchesController: dùng khoa_hoc_ap_dung + lop_ap_dung)
+        const [batchRow] = await connection.query(
+          'SELECT khoa_hoc_ap_dung, lop_ap_dung FROM dot_thuc_tap WHERE id = ?',
+          [dotThucTapId]
+        );
+        const khoa = String(batchRow?.khoa_hoc_ap_dung ?? '').trim();
+        const lop  = String(batchRow?.lop_ap_dung   ?? '').trim();
+
+        // ── svFilter: lọc theo dot_thuc_tap_admin + batch scope ───────────────
+        // KHÔNG dùng dot_thuc_tap_id vì sinh viên chưa có field này set
+        // (đây là logic đúng giống trang Thực tập)
+        const subAdmin  = hasFullFilter ? dotThucTapAdmin : null;
+        const adminCond = subAdmin
+          ? `COALESCE(TRIM(sv.dot_thuc_tap_admin), '') = ?`
+          : `COALESCE(TRIM(sv.dot_thuc_tap_admin), '') IN ('dot-1', 'dot-2')`;
+        const adminParams = subAdmin ? [subAdmin] : [];
+
+        // Batch scope conditions (nếu batch có khoa_hoc/lop áp dụng)
+        const scopeCond   = `
+          AND (? = '' OR COALESCE(TRIM(sv.khoa_hoc), '') = ?)
+          AND (? = '' OR COALESCE(TRIM(sv.lop), '') LIKE CONCAT('%', ?, '%'))
+        `;
+        const scopeParams = [khoa, khoa, lop, lop];
+
+        const svFilter = `${adminCond} ${scopeCond}`;
+        const svParams = [...adminParams, ...scopeParams];
+
+        // JOIN helpers (COLLATE để tránh lỗi collation mismatch)
+        const joinBncsv = `INNER JOIN sinh_vien sv ON sv.ma_sinh_vien COLLATE utf8mb4_unicode_ci = bncsv.ma_sinh_vien COLLATE utf8mb4_unicode_ci`;
+        const joinDiem  = `INNER JOIN sinh_vien sv ON sv.ma_sinh_vien COLLATE utf8mb4_unicode_ci = d.ma_sinh_vien  COLLATE utf8mb4_unicode_ci`;
+        const joinSvId  = `INNER JOIN sinh_vien sv ON sv.id = dk.sinh_vien_id`;
+        const joinPctId = `INNER JOIN sinh_vien sv ON sv.id = pct.sinh_vien_id`;
+
+        console.log('[Dashboard] Batch scope: khoa=' + khoa + ' | lop=' + lop);
+        console.log('[Dashboard] svFilter:', svFilter.trim());
+        console.log('[Dashboard] svParams:', svParams);
+
+        // ── 4 ô overview: đếm đúng theo đợt nhỏ + batch scope ─────────────
+        [totalStudents, totalLecturers, totalCompanies] = await Promise.all([
+          // Số SV trong đợt nhỏ (giống InternshipsPage: dot_thuc_tap_admin + scope)
+          countRows(`SELECT COUNT(*) AS total FROM sinh_vien sv WHERE ${svFilter}`, [...svParams]),
+
+          // Số GV có giang_vien_huong_dan trong đợt
+          // (ưu tiên dùng giang_vien_huong_dan từ sv vì phan_cong_thuc_tap thường rỗng)
+          countRows(`
+            SELECT COUNT(DISTINCT gv.id) AS total FROM giang_vien gv
+            WHERE EXISTS (
+              SELECT 1 FROM sinh_vien sv
+              WHERE ${svFilter}
+                AND LOWER(TRIM(sv.giang_vien_huong_dan)) COLLATE utf8mb4_unicode_ci
+                  = LOWER(TRIM(gv.ho_ten)) COLLATE utf8mb4_unicode_ci
+                AND NULLIF(TRIM(sv.giang_vien_huong_dan), '') IS NOT NULL
+            ) OR EXISTS (
+              SELECT 1 FROM phan_cong_thuc_tap pct
+              INNER JOIN sinh_vien sv ON sv.id = pct.sinh_vien_id
+              WHERE ${svFilter} AND pct.giang_vien_id = gv.id
+            )
+          `, [...svParams, ...svParams]),
+
+          // Số đơn vị/công ty SV thực tập trong đợt
+          // (dùng don_vi_thuc_tap + cong_ty_tu_lien_he từ sinh_vien)
+          countRows(`
+            SELECT COUNT(DISTINCT TRIM(
+              COALESCE(NULLIF(TRIM(sv.don_vi_thuc_tap), ''), sv.cong_ty_tu_lien_he)
+            )) AS total
+            FROM sinh_vien sv
+            WHERE ${svFilter}
+              AND COALESCE(NULLIF(TRIM(sv.don_vi_thuc_tap), ''), NULLIF(TRIM(sv.cong_ty_tu_lien_he), '')) IS NOT NULL
+          `, [...svParams]),
+        ]);
+
+        [
+          rangeReports,
+          rangeGrading,
+          rangeAverageScore,
+          studentRegistrationActivities,
+          assignmentActivities,
+          totalReports,
+          totalGradedReports,
+          totalAverageScore,
+          activeReportStudents,
+          previousWeekReports,
+          activeInternships,
+          totalCompanyRegistrations,
+          pendingCompanyApprovals,
+          totalStudentRegistrations,
+          pendingStudentApprovals,
+          rejectedStudents,
+        ] = await Promise.all([
+          // Báo cáo SV nộp (JOIN qua ma_sinh_vien với COLLATE)
+          countRows(`SELECT COUNT(*) AS total FROM bai_nop_cua_sinh_vien bncsv ${joinBncsv} WHERE ${svFilter} AND ${rangeCondition('bncsv.submitted_at')}`, [...svParams]),
+
+          // GV chấm điểm
+          countRows(`SELECT COUNT(*) AS total FROM diem_theo_dot_nop d ${joinDiem} WHERE d.diem_giang_vien IS NOT NULL AND ${svFilter} AND ${rangeCondition('d.updated_at')}`, [...svParams]),
+
+          // Điểm TB theo khoảng thời gian
+          numberValue(`SELECT AVG(d.diem_giang_vien) AS value FROM diem_theo_dot_nop d ${joinDiem} WHERE d.diem_giang_vien IS NOT NULL AND ${svFilter} AND ${rangeCondition('d.updated_at')}`, [...svParams]),
+
+          // Đăng ký thực tập mới trong khoảng thời gian
+          countRows(`SELECT COUNT(*) AS total FROM dang_ky_thuc_tap_sinh_vien dk ${joinSvId} WHERE ${svFilter} AND ${rangeCondition('dk.created_at')}`, [...svParams]),
+
+          // Phân công thực tập mới trong khoảng thời gian
+          countRows(`SELECT COUNT(*) AS total FROM phan_cong_thuc_tap pct ${joinPctId} WHERE ${svFilter} AND ${rangeCondition('pct.created_at')}`, [...svParams]),
+
+          // Tổng báo cáo trong đợt
+          countRows(`SELECT COUNT(*) AS total FROM bai_nop_cua_sinh_vien bncsv ${joinBncsv} WHERE ${svFilter}`, [...svParams]),
+
+          // Tổng GV đã chấm điểm
+          countRows(`SELECT COUNT(*) AS total FROM diem_theo_dot_nop d ${joinDiem} WHERE d.diem_giang_vien IS NOT NULL AND ${svFilter}`, [...svParams]),
+
+          // Điểm TB tổng thể
+          numberValue(`SELECT AVG(d.diem_giang_vien) AS value FROM diem_theo_dot_nop d ${joinDiem} WHERE d.diem_giang_vien IS NOT NULL AND ${svFilter}`, [...svParams]),
+
+          // SV có nộp báo cáo
+          countRows(`SELECT COUNT(DISTINCT bncsv.ma_sinh_vien) AS total FROM bai_nop_cua_sinh_vien bncsv ${joinBncsv} WHERE ${svFilter}`, [...svParams]),
+
+          // Báo cáo tuần trước
+          countRows(`SELECT COUNT(*) AS total FROM bai_nop_cua_sinh_vien bncsv ${joinBncsv} WHERE ${svFilter} AND ${previousWeekCondition('bncsv.submitted_at')}`, [...svParams]),
+
+          // SV đang thực tập: có don_vi_thuc_tap hoặc phan_cong/dang_ky được duyệt
+          countRows(`
+            SELECT COUNT(DISTINCT sv.id) AS total FROM sinh_vien sv
+            LEFT JOIN phan_cong_thuc_tap pct ON pct.sinh_vien_id = sv.id
+            LEFT JOIN dang_ky_thuc_tap_sinh_vien dk ON dk.sinh_vien_id = sv.id
+            WHERE ${svFilter} AND (
+              NULLIF(TRIM(COALESCE(sv.don_vi_thuc_tap, '')), '') IS NOT NULL
+              OR NULLIF(TRIM(COALESCE(sv.cong_ty_tu_lien_he, '')), '') IS NOT NULL
+              OR sv.trang_thai_phan_cong = 'da-phan-cong'
+              OR pct.trang_thai IN ('dang-dien-ra', 'dang_thuc_tap', 'dang-thuc-tap', 'hoan_thanh')
+              OR dk.trang_thai = 'da-duyet'
+              OR dk.workflow_status IN ('DA_DUYET', 'DANG_THUC_TAP')
+              OR dk.workflow_status_v2 IN ('APPROVED', 'PASS')
+            )
+          `, [...svParams]),
+
+          // Đăng ký doanh nghiệp (theo đợt lớn)
+          countRowsIfTableExists('dang_ky_doanh_nghiep', 'SELECT COUNT(*) AS total FROM dang_ky_doanh_nghiep WHERE dot_thuc_tap_id = ?', [dotThucTapId]),
+          countRowsIfTableExists('dang_ky_doanh_nghiep', "SELECT COUNT(*) AS total FROM dang_ky_doanh_nghiep WHERE dot_thuc_tap_id = ? AND trang_thai = 'cho-duyet'", [dotThucTapId]),
+
+          // Đăng ký SV trong đợt
+          countRows(`SELECT COUNT(*) AS total FROM dang_ky_thuc_tap_sinh_vien dk ${joinSvId} WHERE ${svFilter}`, [...svParams]),
+          countRows(`SELECT COUNT(*) AS total FROM dang_ky_thuc_tap_sinh_vien dk ${joinSvId} WHERE ${svFilter} AND dk.trang_thai IN ('dang_ky','cho-duyet')`, [...svParams]),
+          countRows(`SELECT COUNT(*) AS total FROM dang_ky_thuc_tap_sinh_vien dk ${joinSvId} WHERE ${svFilter} AND dk.trang_thai IN ('bi-tu-choi','bi_tu_choi','tu-choi')`, [...svParams]),
+        ]);
+      } else {
+        // --- Không lọc theo đợt (toàn hệ thống) ---
+        // Tổng hệ thống cho 4 ô overview
+        [totalStudents, totalLecturers, totalCompanies] = await Promise.all([
+          countRows('SELECT COUNT(*) AS total FROM sinh_vien'),
+          countRows('SELECT COUNT(*) AS total FROM giang_vien'),
+          countRows('SELECT COUNT(*) AS total FROM doanh_nghiep'),
+        ]);
+
+        [
+          rangeReports,
+          rangeGrading,
+          rangeAverageScore,
+          studentRegistrationActivities,
+          assignmentActivities,
+          totalReports,
+          totalGradedReports,
+          totalAverageScore,
+          activeReportStudents,
+          previousWeekReports,
+          activeInternships,
+          totalCompanyRegistrations,
+          pendingCompanyApprovals,
+          totalStudentRegistrations,
+          pendingStudentApprovals,
+          rejectedStudents,
+        ] = await Promise.all([
+          countRows(`SELECT COUNT(*) AS total FROM bai_nop_cua_sinh_vien WHERE ${rangeCondition('submitted_at')}`),
+          countRows(`
+            SELECT COUNT(*) AS total FROM diem_theo_dot_nop
+            WHERE diem_giang_vien IS NOT NULL AND ${rangeCondition('updated_at')}
+          `),
+          numberValue(`
+            SELECT AVG(diem_giang_vien) AS value FROM diem_theo_dot_nop
+            WHERE diem_giang_vien IS NOT NULL AND ${rangeCondition('updated_at')}
+          `),
+          countRows(`SELECT COUNT(*) AS total FROM dang_ky_thuc_tap_sinh_vien WHERE ${rangeCondition('created_at')}`),
+          countRows(`SELECT COUNT(*) AS total FROM phan_cong_thuc_tap WHERE ${rangeCondition('created_at')}`),
+          countRows('SELECT COUNT(*) AS total FROM bai_nop_cua_sinh_vien'),
+          countRows('SELECT COUNT(*) AS total FROM diem_theo_dot_nop WHERE diem_giang_vien IS NOT NULL'),
+          numberValue('SELECT AVG(diem_giang_vien) AS value FROM diem_theo_dot_nop WHERE diem_giang_vien IS NOT NULL'),
+          countRows('SELECT COUNT(DISTINCT ma_sinh_vien) AS total FROM bai_nop_cua_sinh_vien'),
+          countRows(`SELECT COUNT(*) AS total FROM bai_nop_cua_sinh_vien WHERE ${previousWeekCondition('submitted_at')}`),
+          countRows(`
+            SELECT COUNT(DISTINCT sv.id) AS total FROM sinh_vien sv
+            LEFT JOIN phan_cong_thuc_tap pct ON pct.sinh_vien_id = sv.id
+            LEFT JOIN dang_ky_thuc_tap_sinh_vien dk ON dk.sinh_vien_id = sv.id
+            WHERE pct.trang_thai IN ('dang-dien-ra', 'dang_thuc_tap', 'dang-thuc-tap')
+               OR sv.trang_thai_phan_cong = 'da-phan-cong'
+               OR NULLIF(TRIM(COALESCE(sv.don_vi_thuc_tap, '')), '') IS NOT NULL
+               OR dk.trang_thai = 'da-duyet'
+               OR dk.workflow_status IN ('DA_DUYET', 'DANG_THUC_TAP')
+               OR dk.workflow_status_v2 IN ('APPROVED', 'PASS')
+          `),
+          countRowsIfTableExists('dang_ky_doanh_nghiep', 'SELECT COUNT(*) AS total FROM dang_ky_doanh_nghiep'),
+          countRowsIfTableExists('dang_ky_doanh_nghiep', "SELECT COUNT(*) AS total FROM dang_ky_doanh_nghiep WHERE trang_thai = 'cho-duyet'"),
+          countRows('SELECT COUNT(*) AS total FROM dang_ky_thuc_tap_sinh_vien'),
+          countRows("SELECT COUNT(*) AS total FROM dang_ky_thuc_tap_sinh_vien WHERE trang_thai IN ('dang_ky', 'cho-duyet')"),
+          countRows("SELECT COUNT(*) AS total FROM dang_ky_thuc_tap_sinh_vien WHERE trang_thai IN ('bi-tu-choi', 'bi_tu_choi', 'tu-choi')"),
+        ]);
+      }
 
       const todayActivities = rangeReports + rangeGrading + studentRegistrationActivities + assignmentActivities;
       const gradedPercent = totalReports > 0 ? Math.round((totalGradedReports / totalReports) * 100) : 0;
@@ -891,6 +1449,8 @@ class AdminController {
         success: true,
         data: {
           range,
+          dotThucTapId,
+          dotThucTapAdmin,
           totalStudents,
           totalLecturers,
           totalCompanies,

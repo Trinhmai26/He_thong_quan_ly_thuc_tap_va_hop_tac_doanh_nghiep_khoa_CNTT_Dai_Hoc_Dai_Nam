@@ -231,6 +231,11 @@ router.put('/student-registrations/:registrationId/approve', AdminController.app
 
 router.put('/student-registrations/:registrationId/reject', AdminController.rejectStudentRegistration);
 
+router.post('/students/bulk-approve-by-preference', AdminController.bulkApproveByPreference);
+
+router.get('/students/diagnose-khoa-gioi-thieu', AdminController.diagnoseKhoaGioiThieu);
+router.post('/students/auto-assign-company-khoa-gioi-thieu', AdminController.autoAssignCompanyForKhoaGioiThieu);
+
 /**
  * @swagger
  * /api/admin/dashboard/stats:

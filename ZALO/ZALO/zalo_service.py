@@ -156,21 +156,50 @@ class ZaloService:
     def lookup_uid_by_phone(self, phone: str) -> Optional[str]:
         """
         Tìm Zalo UID từ số điện thoại.
-        phone: chuỗi số, có thể dạng '0912345678' hoặc '84912345678'.
-        Trả về uid (str) hoặc None nếu không tìm thấy.
+        Truyền nguyên dạng 0xxx vào fetchPhoneNumber — _client.py tự chuẩn hoá thành 84xxx.
+        KHÔNG tự thêm 84 vì _client.py cũng thêm → sẽ thành 8484xxx.
         """
         phone = re.sub(r'\D', '', phone.strip())
         if not phone:
             return None
-        # Chuẩn hoá: 0xxx → 84xxx
-        if phone.startswith('0'):
-            phone = '84' + phone[1:]
+        # Đưa về dạng 0xxx để _client.py tự normalize thành 84xxx (tránh double prefix)
+        if phone.startswith('84') and len(phone) >= 11:
+            phone = '0' + phone[2:]
         try:
             user = self._get_client().fetchPhoneNumber(phone, language='vi')
-            uid = getattr(user, 'uid', None) or getattr(user, 'userId', None)
+            uid  = getattr(user, 'uid', None) or getattr(user, 'userId', None)
+            if not uid:
+                data = getattr(user, 'data', None)
+                if data:
+                    uid = getattr(data, 'userId', None) or getattr(data, 'uid', None)
+                    if not uid and isinstance(data, dict):
+                        uid = data.get('userId') or data.get('uid')
             return str(uid) if uid else None
         except Exception:
             return None
+
+    def send_message_by_uid(self, uid: str, message: str) -> Dict[str, Any]:
+        """
+        Gửi tin nhắn trực tiếp bằng Zalo user_id (không cần kết bạn trước).
+        Dùng cho sinh viên đã liên kết tài khoản qua OA webhook.
+        """
+        message = self._validate_message(message)
+        self._enforce_rate_limit()
+        uid = str(uid).strip()
+        if not uid:
+            return {"success": False, "uid": None, "error": "uid không hợp lệ"}
+        try:
+            from zlapi.models import ThreadType
+            message_obj = self._create_message(message)
+            result = self._get_client().sendMessage(
+                message_obj,
+                thread_id=uid,
+                thread_type=ThreadType.USER,
+            )
+            return {"success": True, "uid": uid, "result": self._serialize_public(result)}
+        except Exception as exc:
+            err = self._wrap_error(exc)
+            return {"success": False, "uid": uid, "error": err.message}
 
     def send_individual_message(self, phone: str, message: str) -> Dict[str, Any]:
         """

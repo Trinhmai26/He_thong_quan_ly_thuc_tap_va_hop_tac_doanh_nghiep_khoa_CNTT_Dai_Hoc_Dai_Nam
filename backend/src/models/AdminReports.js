@@ -70,6 +70,9 @@ class AdminReports {
         ${companyExpr} AS company,
         ${supervisorExpr} AS supervisor,
         ${statusCase} AS status,
+        sv.nguyen_vong_thuc_tap AS internshipPreference,
+        sv.vi_tri_muon_ung_tuyen_thuc_tap AS desiredPosition,
+        sv.lop AS studentClass,
         COALESCE(rep.report_count, 0) AS reportCount,
         rep.last_report_date AS lastReportDate,
         COALESCE(overdue.overdue_count, 0) AS overdueCount,
@@ -276,7 +279,11 @@ class AdminReports {
     }
   }
 
-  static async getReportsStats() {
+  static async getReportsStats(dotThucTapId = null, dotThucTapAdmin = null) {
+    if (dotThucTapId) {
+      return this.getReportsStatsByBatch(dotThucTapId, dotThucTapAdmin);
+    }
+
     try {
       const baseQuery = this._buildInternshipOverviewBaseQuery();
       const rows = await db.query(`
@@ -324,6 +331,109 @@ class AdminReports {
       };
     } catch (error) {
       throw new Error(`Lỗi khi lấy thống kê báo cáo: ${error.message}`);
+    }
+  }
+
+  // Thống kê báo cáo lọc theo đợt lớn + tùy chọn đợt nhỏ
+  static async getReportsStatsByBatch(dotThucTapId, dotThucTapAdmin = null) {
+    const safe = async (sql, params = []) => {
+      try {
+        const rows = await db.query(sql, params);
+        const r = Array.isArray(rows) && rows[0] ? rows[0] : {};
+        return Number(Object.values(r)[0]) || 0;
+      } catch (err) {
+        console.warn('[ReportStats] query failed (returning 0):', err.code || err.message, '| SQL:', sql.slice(0, 120));
+        return 0;
+      }
+    };
+
+    // ── Lấy batch scope để lọc đúng SV (giống InternshipsPage) ──────────────
+    // KHÔNG dùng dot_thuc_tap_id vì SV không có field này set
+    const batchRows = await db.query(
+      'SELECT khoa_hoc_ap_dung, lop_ap_dung FROM dot_thuc_tap WHERE id = ?',
+      [dotThucTapId]
+    );
+    const batchRow = Array.isArray(batchRows) ? batchRows[0] : batchRows;
+    const khoa = String(batchRow?.khoa_hoc_ap_dung ?? '').trim();
+    const lop  = String(batchRow?.lop_ap_dung   ?? '').trim();
+
+    // svWhere: lọc theo dot_thuc_tap_admin + batch scope
+    const svWhere = dotThucTapAdmin
+      ? `COALESCE(TRIM(sv.dot_thuc_tap_admin), '') = ?
+         AND (? = '' OR COALESCE(TRIM(sv.khoa_hoc), '') = ?)
+         AND (? = '' OR COALESCE(TRIM(sv.lop), '') LIKE CONCAT('%', ?, '%'))`
+      : `COALESCE(TRIM(sv.dot_thuc_tap_admin), '') IN ('dot-1', 'dot-2')
+         AND (? = '' OR COALESCE(TRIM(sv.khoa_hoc), '') = ?)
+         AND (? = '' OR COALESCE(TRIM(sv.lop), '') LIKE CONCAT('%', ?, '%'))`;
+    const svParams = dotThucTapAdmin
+      ? [dotThucTapAdmin, khoa, khoa, lop, lop]
+      : [khoa, khoa, lop, lop];
+
+    // JOIN COLLATE để tránh lỗi collation mismatch
+    const joinDiem = `INNER JOIN sinh_vien sv ON sv.ma_sinh_vien COLLATE utf8mb4_unicode_ci = d.ma_sinh_vien COLLATE utf8mb4_unicode_ci`;
+
+    try {
+      const [
+        totalStudents,
+        completedInternships,
+        totalTeachers,
+        submittedTeacherReports,
+        totalCompanies,
+        submittedCompanyReports,
+      ] = await Promise.all([
+        // Tổng SV trong đợt nhỏ (theo dot_thuc_tap_admin + batch scope)
+        safe(`SELECT COUNT(*) FROM sinh_vien sv WHERE ${svWhere}`, [...svParams]),
+
+        // SV đã hoàn thành (có điểm)
+        safe(`
+          SELECT COUNT(DISTINCT sv.id) FROM sinh_vien sv
+          LEFT JOIN phan_cong_thuc_tap pct ON pct.sinh_vien_id = sv.id
+          LEFT JOIN diem_theo_dot_nop d ON d.ma_sinh_vien COLLATE utf8mb4_unicode_ci = sv.ma_sinh_vien COLLATE utf8mb4_unicode_ci
+          WHERE ${svWhere}
+            AND (pct.diem_giang_vien IS NOT NULL OR d.diem_giang_vien IS NOT NULL)
+        `, [...svParams]),
+
+        // GV hướng dẫn SV trong đợt (qua giang_vien_huong_dan)
+        safe(`
+          SELECT COUNT(DISTINCT gv.id) FROM giang_vien gv
+          WHERE EXISTS (
+            SELECT 1 FROM sinh_vien sv
+            WHERE ${svWhere}
+              AND NULLIF(TRIM(sv.giang_vien_huong_dan), '') IS NOT NULL
+              AND LOWER(TRIM(sv.giang_vien_huong_dan)) COLLATE utf8mb4_unicode_ci
+                = LOWER(TRIM(gv.ho_ten)) COLLATE utf8mb4_unicode_ci
+          ) OR EXISTS (
+            SELECT 1 FROM phan_cong_thuc_tap pct
+            INNER JOIN sinh_vien sv ON sv.id = pct.sinh_vien_id
+            WHERE ${svWhere} AND pct.giang_vien_id = gv.id
+          )
+        `, [...svParams, ...svParams]),
+
+        // GV đã chấm điểm cho SV trong đợt
+        safe(`SELECT COUNT(DISTINCT d.slot_id) FROM diem_theo_dot_nop d ${joinDiem} WHERE d.diem_giang_vien IS NOT NULL AND ${svWhere}`, [...svParams]),
+
+        // DN có SV thực tập trong đợt (qua don_vi_thuc_tap)
+        safe(`
+          SELECT COUNT(DISTINCT COALESCE(NULLIF(TRIM(sv.don_vi_thuc_tap),''), NULLIF(TRIM(sv.cong_ty_tu_lien_he),''), ''))
+          FROM sinh_vien sv
+          WHERE ${svWhere}
+            AND COALESCE(NULLIF(TRIM(sv.don_vi_thuc_tap),''), NULLIF(TRIM(sv.cong_ty_tu_lien_he),'')) IS NOT NULL
+        `, [...svParams]),
+
+        // DN đã có báo cáo hoàn thành
+        safe(`SELECT COUNT(DISTINCT pct.doanh_nghiep_id) FROM phan_cong_thuc_tap pct INNER JOIN sinh_vien sv ON sv.id = pct.sinh_vien_id WHERE ${svWhere} AND (pct.trang_thai IN ('hoan_thanh','hoan-thanh') OR pct.diem_so IS NOT NULL)`, [...svParams]),
+      ]);
+
+      return {
+        totalTeachers,
+        submittedTeacherReports,
+        totalCompanies,
+        submittedCompanyReports,
+        totalStudents,
+        completedInternships,
+      };
+    } catch (error) {
+      throw new Error(`Lỗi khi lấy thống kê báo cáo theo đợt: ${error.message}`);
     }
   }
 

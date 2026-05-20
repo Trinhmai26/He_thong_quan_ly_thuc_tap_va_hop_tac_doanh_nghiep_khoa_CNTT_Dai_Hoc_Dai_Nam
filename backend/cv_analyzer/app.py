@@ -195,30 +195,34 @@ def extract_name_api():
 @app.route('/api/validate-cv', methods=['POST'])
 def validate_cv_api():
     """
-    Dedicated endpoint: so khớp tên ứng viên trong CV với tài khoản upload.
+    Dedicated endpoint: so khớp tên/mã SV/email trong nội dung CV với tài khoản upload.
 
     Request JSON:
         filePath         (str, required) – đường dẫn tới file CV
         studentName      (str, required) – tên sinh viên từ tài khoản
-        originalFilename (str, optional) – tên file gốc
+        studentCode      (str, optional) – mã sinh viên (ví dụ: 1671020196)
+        studentEmail     (str, optional) – email sinh viên
+        originalFilename (str, optional) – tên file gốc (chỉ để log)
 
     Response JSON:
         {
             "expected_name":  "Nguyễn Văn A",
-            "extracted_name": "Phan Văn Đằng",
-            "filename_match": true,
-            "content_match":  false,
-            "is_match":       false,
-            "similarity":     0.12,
-            "message":        "Tên ứng viên trong CV không khớp..."
+            "extracted_name": "...",
+            "filename_match": bool,
+            "content_match":  bool,
+            "is_match":       bool,
+            "similarity":     float,
+            "message":        "..."
         }
 
-    HTTP 200 khi hợp lệ, HTTP 422 khi tên không khớp.
+    HTTP 200 khi hợp lệ, HTTP 422 khi không khớp.
     """
     try:
         data = request.get_json(force=True, silent=True) or {}
         file_path         = data.get('filePath') or data.get('cvPath')
         student_name      = (data.get('studentName') or data.get('hoTen') or '').strip()
+        student_code      = (data.get('studentCode') or data.get('maSinhVien') or '').strip()
+        student_email     = (data.get('studentEmail') or data.get('email') or '').strip()
         original_filename = (data.get('originalFilename') or data.get('filename') or '').strip()
 
         if not file_path:
@@ -228,10 +232,13 @@ def validate_cv_api():
         if not student_name:
             return jsonify({"error": "studentName is required"}), 400
 
-        logger.info("validate-cv | file=%s | student=%s",
-                    os.path.basename(file_path), student_name)
+        logger.info("validate-cv | file=%s | student='%s' | code='%s' | email='%s'",
+                    os.path.basename(file_path), student_name, student_code, student_email)
 
-        result = validate_upload(file_path, student_name, original_filename)
+        result = validate_upload(
+            file_path, student_name, original_filename,
+            student_code=student_code, student_email=student_email
+        )
         logger.info("validate-cv | is_match=%s similarity=%.3f extracted='%s'",
                     result['is_match'], result['similarity'], result.get('extracted_name'))
 

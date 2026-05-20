@@ -4,8 +4,12 @@ class AdminReportsController {
   // Get reports statistics for admin dashboard
   static async getReportsStats(req, res) {
     try {
-      const stats = await AdminReports.getReportsStats();
-      
+      const dotThucTapId = req.query.dot_thuc_tap_id ? parseInt(req.query.dot_thuc_tap_id) : null;
+      const allowedDotNho = new Set(['dot-1', 'dot-2']);
+      const rawDotNho = String(req.query.dot_thuc_tap_admin || '').trim();
+      const dotThucTapAdmin = allowedDotNho.has(rawDotNho) ? rawDotNho : null;
+      const stats = await AdminReports.getReportsStats(dotThucTapId, dotThucTapAdmin);
+
       res.json({
         success: true,
         data: stats

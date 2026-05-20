@@ -254,14 +254,20 @@ class ZaloController {
   static async getStudentZaloList(req, res) {
     try {
       const { role } = req.user;
-      let query = 'SELECT ma_sinh_vien, ho_ten, lop, khoa, so_dien_thoai, zalo_user_id FROM sinh_vien ORDER BY ho_ten';
+      // giang_vien_huong_dan stores the lecturer's ho_ten (name), not their DB id
+      let query = 'SELECT id, ma_sinh_vien, ho_ten, lop, khoa, so_dien_thoai, zalo_user_id FROM sinh_vien ORDER BY ho_ten';
       const params = [];
 
       if (role === 'giang-vien') {
-        const gvRows = await db.query('SELECT id FROM giang_vien WHERE account_id = ? LIMIT 1', [req.user.id]);
+        const gvRows = await db.query(
+          'SELECT id, ho_ten FROM giang_vien WHERE account_id = ? LIMIT 1',
+          [req.user.id]
+        );
         if (gvRows.length > 0) {
-          query = 'SELECT ma_sinh_vien, ho_ten, lop, khoa, so_dien_thoai, zalo_user_id FROM sinh_vien WHERE giang_vien_huong_dan = ? ORDER BY ho_ten';
-          params.push(gvRows[0].id);
+          // Match by lecturer name (giang_vien_huong_dan stores ho_ten)
+          query = `SELECT id, ma_sinh_vien, ho_ten, lop, khoa, so_dien_thoai, zalo_user_id
+                   FROM sinh_vien WHERE giang_vien_huong_dan = ? ORDER BY ho_ten`;
+          params.push(gvRows[0].ho_ten);
         }
       }
 
@@ -269,6 +275,7 @@ class ZaloController {
       return res.json({
         success: true,
         data: rows.map(r => ({
+          id: r.id,
           ma_sinh_vien: r.ma_sinh_vien,
           ho_ten: r.ho_ten,
           lop: r.lop,
@@ -491,80 +498,98 @@ class ZaloController {
 
     const flaskBase = ZaloController._localUrl();
 
+    // Tên người gửi: lấy từ JWT (hoTen) hoặc tra DB theo role
+    const senderName = String(req.user?.hoTen || req.user?.ho_ten || '').trim();
+    const senderRole = String(req.user?.role || '').toLowerCase();
+    const senderLabel = senderRole.includes('admin')
+      ? 'Ban Quản lý Khoa CNTT'
+      : senderName ? `GV. ${senderName}` : 'Giảng viên hướng dẫn';
+
     try {
       // Lấy thông tin sinh viên từ DB
       const placeholders = studentIds.map(() => '?').join(',');
       const students = await db.query(
-        `SELECT id, ho_ten, ma_sinh_vien, so_dien_thoai FROM sinh_vien WHERE id IN (${placeholders})`,
+        `SELECT id, ho_ten, ma_sinh_vien, so_dien_thoai, zalo_user_id FROM sinh_vien WHERE id IN (${placeholders})`,
         studentIds
       );
 
       const results = [];
+      const titleText = title.trim();
+      const bodyText  = message.trim();
 
       for (const sv of students) {
-        const phone = sv.so_dien_thoai?.trim();
+        const phone = (sv.so_dien_thoai || '').trim();
 
         if (!phone) {
+          console.warn(`[Zalo] SKIP SV="${sv.ho_ten}" (${sv.ma_sinh_vien}): không có SĐT`);
           results.push({
-            id: sv.id,
-            name: sv.ho_ten,
-            ma_sinh_vien: sv.ma_sinh_vien,
-            success: false,
-            reason: 'Không có số điện thoại',
+            id: sv.id, name: sv.ho_ten, ma_sinh_vien: sv.ma_sinh_vien, phone: '',
+            success: false, reason: 'Sinh viên chưa có số điện thoại',
           });
           continue;
         }
 
-        try {
-          const resp = await axios.post(
-            `${flaskBase}/send-message`,
-            { phone, title: title.trim(), message: message.trim() },
-            { timeout: 30000, validateStatus: () => true }
-          );
+        // Xây dựng tin nhắn cá nhân hoá
+        const studentGreeting = sv.ho_ten ? `Kính gửi sinh viên ${sv.ho_ten},\n\n` : '';
+        const signature       = `\n\nTrân trọng,\n${senderLabel}\nKhoa CNTT - ĐH Đại Nam`;
+        const fullMessage     = titleText
+          ? `📢 ${titleText}\n\n${studentGreeting}${bodyText}${signature}`
+          : `${studentGreeting}${bodyText}${signature}`;
 
-          const ok = resp.data?.success === true;
+        const flaskEndpoint = `${flaskBase}/send-message`;
+        const body = { phone, message: fullMessage };
+
+        console.log(`[Zalo] SEND → SV="${sv.ho_ten}" (${sv.ma_sinh_vien}) SĐT=${phone}`);
+        console.log(`[Zalo] API=${flaskEndpoint}`);
+        console.log(`[Zalo] Nội dung:\n${fullMessage}`);
+
+        try {
+          const resp = await axios.post(flaskEndpoint, body, { timeout: 30000, validateStatus: () => true });
+
+          console.log(`[Zalo] Response HTTP=${resp.status}:`, JSON.stringify(resp.data));
+
+          const ok     = resp.data?.success === true;
+          const reason = resp.data?.message || (ok ? 'Đã gửi thành công' : 'Zalo không gửi được');
+
+          if (!ok) {
+            console.error(`[Zalo] FAIL SV=${sv.ma_sinh_vien} SĐT=${phone}: ${reason}`);
+          }
+
           results.push({
-            id: sv.id,
-            name: sv.ho_ten,
-            ma_sinh_vien: sv.ma_sinh_vien,
-            phone,
-            success: ok,
-            reason: resp.data?.message || (ok ? 'Đã gửi' : 'Thất bại'),
+            id: sv.id, name: sv.ho_ten, ma_sinh_vien: sv.ma_sinh_vien, phone,
+            success: ok, reason,
           });
 
-          // Lưu notification vào DB
           if (ok) {
-            const notifTitle = title.trim() || 'Thông báo Zalo';
+            const notifTitle = titleText || 'Thông báo Zalo';
             try {
               await db.query(
                 `INSERT INTO notifications (account_id, receiver_id, student_id, title, message, type, action_type, is_read, created_at)
                  VALUES (?, ?, ?, ?, ?, 'info', 'zalo_send', 0, NOW())`,
-                [req.user.id, sv.id, sv.id, notifTitle, message.trim()]
+                [req.user.id, sv.id, sv.id, notifTitle, bodyText]
               );
             } catch (dbErr) {
-              console.warn(`[sendToStudents] Không lưu được notification cho SV ${sv.ma_sinh_vien}:`, dbErr.message);
+              console.warn(`[Zalo] Không lưu notification SV ${sv.ma_sinh_vien}:`, dbErr.message);
             }
           }
         } catch (sendErr) {
+          const errMsg = sendErr.code === 'ECONNREFUSED'
+            ? 'Zalo Local Service chưa khởi động. Hãy chạy: cd ZALO/ZALO && python app.py'
+            : `Lỗi kết nối Flask: ${sendErr.message}`;
+          console.error(`[Zalo] ERROR SV=${sv.ma_sinh_vien} SĐT=${phone}:`, sendErr.message);
           results.push({
-            id: sv.id,
-            name: sv.ho_ten,
-            ma_sinh_vien: sv.ma_sinh_vien,
-            phone,
-            success: false,
-            reason: `Lỗi kết nối Flask: ${sendErr.message}`,
+            id: sv.id, name: sv.ho_ten, ma_sinh_vien: sv.ma_sinh_vien, phone,
+            success: false, reason: errMsg,
           });
         }
 
-        // Delay 1.2s giữa các lần gửi tránh spam
         if (students.indexOf(sv) < students.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 1200));
         }
       }
 
-      const sent = results.filter(r => r.success).length;
+      const sent   = results.filter(r => r.success).length;
       const failed = results.filter(r => !r.success).length;
-
       console.log(`[sendToStudents] Done: ${sent} thành công, ${failed} thất bại / ${results.length} tổng`);
 
       return res.json({ success: true, data: { sent, failed, total: results.length, results } });

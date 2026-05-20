@@ -234,6 +234,7 @@ _SKIP_WORDS: frozenset[str] = frozenset({
 
 def _norm_vi(text: str) -> str:
     """Normalize Vietnamese text: remove diacritics, lowercase, collapse spaces."""
+    text = text.replace('đ', 'd').replace('Đ', 'D')
     nfkd = unicodedata.normalize('NFKD', text)
     no_accent = ''.join(c for c in nfkd if not unicodedata.combining(c))
     return re.sub(r'\s+', ' ', no_accent.lower()).strip()
@@ -296,13 +297,19 @@ def extract_name_from_text(text: str, max_lines: int = 40) -> str | None:
 # ==============================================================================
 
 def normalize_name(text: str) -> str:
-    """Normalize: NFKD → strip diacritics → lowercase → letters+spaces only."""
+    """
+    Normalize Vietnamese text for name matching.
+    đ/Đ must be replaced BEFORE NFKD because they don't decompose under Unicode.
+    """
     if not text or not text.strip():
         return ''
+    # đ/Đ doesn't decompose under NFKD — handle explicitly first
+    text = text.replace('đ', 'd').replace('Đ', 'D')
     text = unicodedata.normalize('NFKD', text)
     text = ''.join(c for c in text if not unicodedata.combining(c))
     text = text.lower()
-    text = re.sub(r'[^a-z\s]', '', text)
+    # Replace non-alpha chars (digits, punctuation) with space so tokens stay separated
+    text = re.sub(r'[^a-z\s]', ' ', text)
     return re.sub(r'\s+', ' ', text).strip()
 
 
@@ -374,97 +381,183 @@ def check_filename_match(filename: str, expected_name: str) -> bool:
 # ==============================================================================
 
 def validate_upload(file_path: str, student_name: str,
-                    original_filename: str = '') -> dict:
+                    original_filename: str = '',
+                    student_code: str = '',
+                    student_email: str = '') -> dict:
     """
-    Full CV upload validation:
-      1. Extract raw text (no YOLO — fast).
-      2. Fallback: full-text exact substring search of student_name.
-      3. Extract candidate name via regex heuristic.
-      4. Compare with student_name (normalize + fuzzy).
-      5. Check original_filename too (informational).
-
-    Returns:
-        {
-            expected_name, extracted_name, filename_match,
-            content_match, is_match, similarity, message
-        }
+    Full CV upload validation — content-first, multi-strategy matching.
+    Verifies by: name (4 strategies) → student_code → student_email.
+    Security: only content match grants access; filename is informational only.
     """
-    logger.info("validate_upload | file='%s' student='%s'",
-                os.path.basename(file_path), student_name)
+    logger.info("=== validate_upload START ===")
+    logger.info("file='%s'  student='%s'  code='%s'  email='%s'",
+                os.path.basename(file_path), student_name, student_code, student_email)
 
-    # ── File exists check ─────────────────────────────────────────────────────
+    # ── File exists ───────────────────────────────────────────────────────────
     if not os.path.isfile(file_path):
         return _vld_err(f"File không tồn tại: {file_path}", student_name)
 
-    # ── Extract text ─────────────────────────────────────────────────────────
+    # ── Extract text (read more pages for completeness) ───────────────────────
     try:
-        text = extract_raw_text(file_path, max_pages=2)
+        text = extract_raw_text(file_path, max_pages=5)
     except Exception as e:
-        logger.error("validate_upload: extract_raw_text failed: %s", e)
+        logger.error("extract_raw_text failed: %s", e)
         return _vld_err(f"Không đọc được nội dung CV: {e}", student_name)
 
-    if not text.strip():
-        logger.warning("validate_upload: empty text extracted")
+    text_len = len(text.strip()) if text else 0
+    logger.info("extractedTextLength: %d", text_len)
+    if text_len > 0:
+        logger.info("extractedText (first 2000):\n%s", text[:2000])
+    else:
+        logger.warning("PDF không trích xuất được text — empty or image-only PDF")
+
+    if not text or text_len < 10:
+        logger.warning("REJECT: cannot read CV content")
+        fn_match = check_filename_match(original_filename, student_name)
         return {
-            'expected_name':  student_name,
-            'extracted_name': None,
-            'filename_match': check_filename_match(original_filename, student_name),
-            'content_match':  False,
-            'is_match':       False,
-            'similarity':     0.0,
-            'message':        'Không đọc được nội dung CV (file rỗng hoặc bị mã hóa)',
+            'expected_name': student_name, 'extracted_name': None,
+            'filename_match': fn_match, 'content_match': False,
+            'is_match': False, 'similarity': 0.0,
+            'message': (
+                'Không đọc được nội dung CV (file rỗng hoặc chỉ chứa ảnh scan). '
+                'Vui lòng upload CV dạng PDF có thể copy text.'
+            ),
         }
 
-    # ── Filename match (informational) ───────────────────────────────────────
+    # ── filename match (informational) ────────────────────────────────────────
     filename_match = check_filename_match(original_filename, student_name)
 
-    # ── Fallback: exact normalized substring in first 3000 chars ─────────────
-    norm_student = normalize_name(student_name)
-    norm_head    = normalize_name(text[:3000])
-    if norm_student and norm_student in norm_head:
-        logger.info("validate_upload: exact substring match in full text")
-        return {
-            'expected_name':  student_name,
-            'extracted_name': student_name,
-            'filename_match': filename_match,
-            'content_match':  True,
-            'is_match':       True,
-            'similarity':     1.0,
-            'message':        'Tên ứng viên trong CV khớp với tài khoản upload',
-        }
+    # ── Normalize student name ─────────────────────────────────────────────────
+    norm_student      = normalize_name(student_name)
+    norm_student_ns   = norm_student.replace(' ', '')        # no-space variant
+    student_tokens    = [t for t in norm_student.split() if len(t) >= 2]
 
-    # ── Extract candidate name ────────────────────────────────────────────────
+    logger.info("studentName          : '%s'", student_name)
+    logger.info("normalizedStudentName: '%s'", norm_student)
+    logger.info("studentTokens        : %s",  student_tokens)
+
+    # ── Normalize full CV text ─────────────────────────────────────────────────
+    norm_text    = normalize_name(text)
+    norm_text_ns = norm_text.replace(' ', '')
+
+    logger.info("normalizedText (first 500): %s", norm_text[:500])
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # STRATEGY 1: Direct normalized substring — fastest, most reliable
+    # ══════════════════════════════════════════════════════════════════════════
+    s1 = bool(norm_student and norm_student in norm_text)
+    logger.info("S1 directSubstring    : %s  ('%s' in text)", s1, norm_student)
+    if s1:
+        logger.info("ACCEPTED via S1")
+        return _content_match_result(student_name, student_name, filename_match, 1.0)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # STRATEGY 2: No-space variant — handles PDF that merges words or splits
+    #             across lines (e.g. "trinhthiyenmai" in "trinhthiyenmai26")
+    # ══════════════════════════════════════════════════════════════════════════
+    s2 = bool(norm_student_ns and len(norm_student_ns) >= 6 and norm_student_ns in norm_text_ns)
+    logger.info("S2 noSpaceMatch       : %s  ('%s' in textNoSpace)", s2, norm_student_ns)
+    if s2:
+        logger.info("ACCEPTED via S2")
+        return _content_match_result(student_name, student_name, filename_match, 0.95)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # STRATEGY 3: All-token match — every word of name appears in text
+    #             (handles newline-separated names in extracted text)
+    # ══════════════════════════════════════════════════════════════════════════
+    cv_word_set   = set(norm_text.split())
+    # Use EXACT word match (not substring) to prevent "thi" matching in "thiet", "mai" in "email"
+    matched_toks  = [t for t in student_tokens if t in cv_word_set]
+    s3 = len(student_tokens) >= 2 and len(matched_toks) == len(student_tokens)
+    logger.info("S3 allTokensWholeWord : %s  matched=%s / total=%s",
+                s3, matched_toks, student_tokens)
+    if s3:
+        logger.info("ACCEPTED via S3")
+        return _content_match_result(student_name, student_name, filename_match, 0.90)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # STRATEGY 4: Extract candidate name → fuzzy compare
+    # ══════════════════════════════════════════════════════════════════════════
     extracted_name = extract_name_from_text(text, max_lines=40)
-    logger.info("validate_upload: extracted_name='%s'", extracted_name)
+    logger.info("S4 extractedCandidateName: '%s'", extracted_name)
 
-    # ── Compare ───────────────────────────────────────────────────────────────
     if extracted_name:
         cmp = compare_names(student_name, extracted_name, threshold=0.80)
-        content_match = cmp['match']
-        similarity    = cmp['similarity']
+        s4_match  = cmp['match']
+        similarity = cmp['similarity']
+        logger.info("S4 fuzzyMatch=%s  similarity=%.3f", s4_match, similarity)
     else:
-        content_match = False
-        similarity    = 0.0
+        s4_match  = False
+        similarity = 0.0
+        logger.info("S4: Không tìm thấy tên sinh viên trong extractedText")
 
-    is_match = content_match
+    if s4_match:
+        logger.info("ACCEPTED via S4")
+        return _content_match_result(student_name, extracted_name, filename_match, similarity)
 
-    if is_match:
-        msg = 'Tên ứng viên trong CV khớp với tài khoản upload'
-    elif not extracted_name:
-        msg = ('Không tìm thấy tên ứng viên trong nội dung CV. '
-               'Vui lòng đặt tên file: MaSV_HoTen.pdf')
+    # ══════════════════════════════════════════════════════════════════════════
+    # STRATEGY 5: Student code in raw text (strongest machine-readable signal)
+    # ══════════════════════════════════════════════════════════════════════════
+    s5 = bool(student_code and student_code.strip() and student_code.strip() in text)
+    logger.info("S5 studentCodeInText  : %s  (code='%s')", s5, student_code)
+    if s5:
+        logger.info("ACCEPTED via S5 (student code found in CV)")
+        return _content_match_result(student_name, None, filename_match, 1.0)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # STRATEGY 6: Student email in raw text
+    # ══════════════════════════════════════════════════════════════════════════
+    s6 = bool(
+        student_email and student_email.strip()
+        and student_email.strip().lower() in text.lower()
+    )
+    logger.info("S6 studentEmailInText : %s  (email='%s')", s6, student_email)
+    if s6:
+        logger.info("ACCEPTED via S6 (student email found in CV)")
+        return _content_match_result(student_name, None, filename_match, 1.0)
+
+    # ── All strategies failed ─────────────────────────────────────────────────
+    if extracted_name:
+        msg = (
+            f"Tên ứng viên trong CV ('{extracted_name}') "
+            f"không khớp với tài khoản upload ('{student_name}')"
+        )
+    elif text_len > 0:
+        msg = (
+            'Không tìm thấy họ tên, mã sinh viên hoặc email trong nội dung CV. '
+            'Vui lòng upload CV chứa thông tin cá nhân của bạn.'
+        )
     else:
-        msg = (f"Tên ứng viên trong CV ('{extracted_name}') "
-               f"không khớp với tài khoản upload ('{student_name}')")
+        msg = (
+            'Không đọc được nội dung CV. '
+            'Vui lòng upload CV dạng PDF có thể copy text (không phải ảnh scan).'
+        )
+
+    logger.info("REJECTED | S1=%s S2=%s S3=%s S4=%s S5=%s S6=%s",
+                s1, s2, s3, s4_match, s5, s6)
+    logger.info("=== validate_upload END ===")
 
     return {
         'expected_name':  student_name,
         'extracted_name': extracted_name,
         'filename_match': filename_match,
-        'content_match':  content_match,
-        'is_match':       is_match,
+        'content_match':  False,
+        'is_match':       False,
         'similarity':     round(similarity, 3),
         'message':        msg,
+    }
+
+
+def _content_match_result(student_name: str, extracted_name: str,
+                           filename_match: bool, similarity: float) -> dict:
+    return {
+        'expected_name':  student_name,
+        'extracted_name': extracted_name,
+        'filename_match': filename_match,
+        'content_match':  True,
+        'is_match':       True,
+        'similarity':     round(similarity, 3),
+        'message':        'Tên ứng viên trong CV khớp với tài khoản upload',
     }
 
 

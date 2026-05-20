@@ -1,6 +1,17 @@
 const { query } = require('../database/connection');
 
 class SinhVien {
+    static async getTableColumns(tableName) {
+        if (tableName !== 'sinh_vien') return new Set();
+        if (!this._columnCache) this._columnCache = {};
+        if (this._columnCache[tableName]) return this._columnCache[tableName];
+
+        const rows = await query(`SHOW COLUMNS FROM ${tableName}`);
+        const columns = new Set((rows || []).map((row) => row.Field || row.field).filter(Boolean));
+        this._columnCache[tableName] = columns;
+        return columns;
+    }
+
     constructor(data = {}) {
         this.id = data.id;
         this.account_id = data.account_id;
@@ -403,6 +414,7 @@ class SinhVien {
             await this.recalcAssignmentStatus();
             
             const offset = (page - 1) * limit;
+            const sinhVienColumns = await this.getTableColumns('sinh_vien');
 
             const buildWhere = (approvalSource = 'workflow') => {
                 let whereClause = '';
@@ -423,23 +435,65 @@ class SinhVien {
                     whereParams.push(underscore, hyphen);
                 }
 
+                const regTable = approvalSource === 'legacy' ? 'dang_ky_sinh_vien' : 'dang_ky_thuc_tap_sinh_vien';
+                const latestStatusExpr = approvalSource === 'legacy'
+                    ? `(SELECT dkf2.trang_thai FROM ${regTable} dkf2 WHERE dkf2.sinh_vien_id = sv.id ORDER BY dkf2.id DESC LIMIT 1)`
+                    : `(SELECT COALESCE(dkf2.workflow_status_v2, dkf2.trang_thai) FROM ${regTable} dkf2 WHERE dkf2.sinh_vien_id = sv.id ORDER BY dkf2.id DESC LIMIT 1)`;
+                const addLatestStatusFilter = (statuses) => {
+                    addCondition(`LOWER(COALESCE(${latestStatusExpr}, '')) IN (${statuses.map(() => '?').join(', ')})`);
+                    whereParams.push(...statuses.map((status) => String(status).toLowerCase()));
+                };
+                const buildAssignedCondition = (columns, missingLabels) => {
+                    const checks = columns
+                        .filter((column) => sinhVienColumns.has(column))
+                        .map((column) => {
+                            const normalized = `LOWER(TRIM(COALESCE(CAST(sv.\`${column}\` AS CHAR), '')))`;
+                            const labelChecks = missingLabels.map(() => `${normalized} NOT LIKE ?`);
+                            whereParams.push(...missingLabels.map((label) => `%${label}%`));
+                            return `(
+                                ${normalized} <> ''
+                                AND ${normalized} <> '0'
+                                AND ${normalized} <> 'null'
+                                AND ${normalized} <> 'undefined'
+                                AND ${normalized} <> '-'
+                                ${labelChecks.length ? `AND ${labelChecks.join(' AND ')}` : ''}
+                            )`;
+                        });
+
+                    return checks.length ? `(${checks.join(' OR ')})` : 'FALSE';
+                };
+
                 // Server-side filter by approval status
                 if (trang_thai_filter && trang_thai_filter !== 'all') {
-                    const regTable = approvalSource === 'legacy' ? 'dang_ky_sinh_vien' : 'dang_ky_thuc_tap_sinh_vien';
                     if (trang_thai_filter === 'chua-dang-ky') {
                         addCondition(`NOT EXISTS (SELECT 1 FROM ${regTable} dkf WHERE dkf.sinh_vien_id = sv.id)`);
+                    } else if (trang_thai_filter === 'chua-phan-cong') {
+                        addLatestStatusFilter(['approved', 'interview_scheduled', 'pass', 'da-duyet']);
+                        const hasTeacher = buildAssignedCondition(
+                            ['giang_vien_id', 'lecturer_id', 'supervisor_id', 'teacher_id', 'ten_giang_vien', 'giang_vien_huong_dan'],
+                            ['chưa phân công', 'chua phan cong', 'chưa chọn', 'chua chon', 'chọn giảng viên', 'chon giang vien']
+                        );
+                        const hasBatch = buildAssignedCondition(
+                            ['dot_thuc_tap_id', 'internship_batch_id', 'batch_id', 'ten_dot', 'dot', 'internship_period', 'dot_thuc_tap_admin'],
+                            ['chưa phân đợt', 'chua phan dot', 'chưa phân công', 'chua phan cong', 'chưa chọn', 'chua chon', 'chọn đợt', 'chon dot']
+                        );
+                        addCondition(`(
+                            NOT ${hasTeacher}
+                            OR NOT ${hasBatch}
+                        )`);
+                    } else if (trang_thai_filter === 'da-duyet') {
+                        addLatestStatusFilter(['approved', 'interview_scheduled', 'pass', 'da-duyet']);
+                    } else if (trang_thai_filter === 'cho-duyet') {
+                        addLatestStatusFilter(['pending', 'cho-duyet']);
+                    } else if (trang_thai_filter === 'bi-tu-choi') {
+                        addLatestStatusFilter(['rejected', 'fail', 'tu-choi', 'bi-tu-choi']);
                     } else {
-                        // 'bi-tu-choi' stored as 'tu-choi' in DB
-                        const dbStatus = trang_thai_filter === 'bi-tu-choi' ? 'tu-choi' : trang_thai_filter;
-                        addCondition(`(SELECT dkf2.trang_thai FROM ${regTable} dkf2 WHERE dkf2.sinh_vien_id = sv.id ORDER BY dkf2.id DESC LIMIT 1) = ?`);
-                        whereParams.push(dbStatus);
+                        addLatestStatusFilter([trang_thai_filter]);
                     }
                 }
 
                 if (approvedOnly && !trang_thai_filter) {
-                    const regTable = approvalSource === 'legacy' ? 'dang_ky_sinh_vien' : 'dang_ky_thuc_tap_sinh_vien';
-                    const approvedCondition = `EXISTS (SELECT 1 FROM ${regTable} dkao WHERE dkao.sinh_vien_id = sv.id AND dkao.trang_thai = 'da-duyet')`;
-                    addCondition(approvedCondition);
+                    addLatestStatusFilter(['approved', 'interview_scheduled', 'pass', 'da-duyet']);
                 }
 
                 return { whereClause, whereParams };

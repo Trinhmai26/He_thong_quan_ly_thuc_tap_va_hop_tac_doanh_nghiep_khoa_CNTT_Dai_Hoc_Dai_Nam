@@ -178,6 +178,245 @@ class DashboardController {
       });
     }
   }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // GET /api/dashboard/students-by-period
+  // Query params: dot_thuc_tap_id (required), dot_thuc_tap_admin (required)
+  // Trả danh sách SV thuộc đợt lớn + đợt nhỏ đã chọn
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Helper: build scope-aware student WHERE clause
+  // Dùng dot_thuc_tap_admin + khoa_hoc/lop batch scope (KHÔNG dùng dot_thuc_tap_id)
+  // Đây là logic đúng giống trang Thực tập (InternshipBatchesController)
+  static async _buildStudentScopeFilter(dotThucTapId, dotThucTapAdmin) {
+    const [batchRow] = await connection.query(
+      'SELECT khoa_hoc_ap_dung, lop_ap_dung FROM dot_thuc_tap WHERE id = ?',
+      [dotThucTapId]
+    );
+    const khoa = String(batchRow?.khoa_hoc_ap_dung ?? '').trim();
+    const lop  = String(batchRow?.lop_ap_dung   ?? '').trim();
+
+    const whereSql = `
+      COALESCE(TRIM(sv.dot_thuc_tap_admin), '') = ?
+      AND (? = '' OR COALESCE(TRIM(sv.khoa_hoc), '') = ?)
+      AND (? = '' OR COALESCE(TRIM(sv.lop), '') LIKE CONCAT('%', ?, '%'))
+    `;
+    const whereParams = [dotThucTapAdmin, khoa, khoa, lop, lop];
+    return { whereSql, whereParams, khoa, lop };
+  }
+
+  static async getStudentsByPeriod(req, res) {
+    try {
+      const dotThucTapId    = parseInt(req.query.dot_thuc_tap_id)    || 0;
+      const dotThucTapAdmin = String(req.query.dot_thuc_tap_admin || '').trim();
+
+      if (!dotThucTapId || !['dot-1', 'dot-2'].includes(dotThucTapAdmin)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Thiếu tham số dot_thuc_tap_id hoặc dot_thuc_tap_admin'
+        });
+      }
+
+      const page   = Math.max(1, parseInt(req.query.page)  || 1);
+      const limit  = Math.min(500, Math.max(1, parseInt(req.query.limit) || 100));
+      const offset = (page - 1) * limit;
+
+      // Build scope filter (đồng nhất với InternshipsPage)
+      const { whereSql, whereParams } = await DashboardController._buildStudentScopeFilter(dotThucTapId, dotThucTapAdmin);
+
+      const baseSql = `
+        FROM sinh_vien sv
+        LEFT JOIN phan_cong_thuc_tap pct ON pct.sinh_vien_id = sv.id
+        LEFT JOIN doanh_nghiep dn ON dn.id = pct.doanh_nghiep_id
+        LEFT JOIN giang_vien gv ON gv.id = pct.giang_vien_id
+        WHERE ${whereSql}
+      `;
+
+      const [countRow] = await connection.query(
+        `SELECT COUNT(*) AS total ${baseSql}`, [...whereParams]
+      );
+      const total = Number(countRow?.total ?? 0);
+
+      const students = await connection.query(`
+        SELECT
+          sv.ma_sinh_vien,
+          sv.ho_ten,
+          sv.lop,
+          sv.khoa,
+          COALESCE(
+            NULLIF(TRIM(gv.ho_ten), ''),
+            NULLIF(TRIM(sv.giang_vien_huong_dan), '')
+          ) AS giang_vien_huong_dan,
+          COALESCE(
+            NULLIF(TRIM(dn.ten_cong_ty), ''),
+            NULLIF(TRIM(sv.don_vi_thuc_tap), ''),
+            NULLIF(TRIM(sv.cong_ty_tu_lien_he), '')
+          ) AS don_vi_thuc_tap,
+          NULLIF(TRIM(sv.vi_tri_muon_ung_tuyen_thuc_tap), '') AS vi_tri_thuc_tap,
+          sv.trang_thai_phan_cong,
+          pct.ngay_bat_dau,
+          pct.ngay_ket_thuc,
+          pct.trang_thai AS trang_thai_phancong,
+          sv.nguyen_vong_thuc_tap
+        ${baseSql}
+        ORDER BY sv.lop ASC, sv.ho_ten ASC
+        LIMIT ? OFFSET ?
+      `, [...whereParams, limit, offset]);
+
+      res.json({
+        success: true,
+        data: {
+          students,
+          pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+        }
+      });
+    } catch (error) {
+      console.error('❌ getStudentsByPeriod:', error);
+      res.status(500).json({ success: false, message: 'Lỗi server', error: error.message });
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // GET /api/dashboard/export-students-by-period
+  // Xuất file Excel danh sách SV theo đợt
+  // ─────────────────────────────────────────────────────────────────────────────
+  static async exportStudentsByPeriod(req, res) {
+    try {
+      const dotThucTapId    = parseInt(req.query.dot_thuc_tap_id)    || 0;
+      const dotThucTapAdmin = String(req.query.dot_thuc_tap_admin || '').trim();
+      const bigBatchName    = String(req.query.ten_dot_lon || 'DotThucTap').trim();
+      const subBatchName    = String(req.query.ten_dot_nho || dotThucTapAdmin).trim();
+
+      if (!dotThucTapId || !['dot-1', 'dot-2'].includes(dotThucTapAdmin)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Thiếu tham số dot_thuc_tap_id hoặc dot_thuc_tap_admin'
+        });
+      }
+
+      // Build scope filter (đồng nhất với InternshipsPage + getStudentsByPeriod)
+      const { whereSql, whereParams } = await DashboardController._buildStudentScopeFilter(dotThucTapId, dotThucTapAdmin);
+
+      const students = await connection.query(`
+        SELECT
+          sv.ma_sinh_vien,
+          sv.ho_ten,
+          sv.lop,
+          sv.khoa,
+          COALESCE(
+            NULLIF(TRIM(gv.ho_ten), ''),
+            NULLIF(TRIM(sv.giang_vien_huong_dan), '')
+          ) AS giang_vien_huong_dan,
+          COALESCE(
+            NULLIF(TRIM(dn.ten_cong_ty), ''),
+            NULLIF(TRIM(sv.don_vi_thuc_tap), ''),
+            NULLIF(TRIM(sv.cong_ty_tu_lien_he), '')
+          ) AS don_vi_thuc_tap,
+          NULLIF(TRIM(sv.vi_tri_muon_ung_tuyen_thuc_tap), '') AS vi_tri_thuc_tap,
+          sv.trang_thai_phan_cong,
+          pct.ngay_bat_dau,
+          pct.ngay_ket_thuc
+        FROM sinh_vien sv
+        LEFT JOIN phan_cong_thuc_tap pct ON pct.sinh_vien_id = sv.id
+        LEFT JOIN doanh_nghiep dn ON dn.id = pct.doanh_nghiep_id
+        LEFT JOIN giang_vien gv ON gv.id = pct.giang_vien_id
+        WHERE ${whereSql}
+        ORDER BY sv.lop ASC, sv.ho_ten ASC
+      `, [...whereParams]);
+
+      // Build Excel with ExcelJS
+      const ExcelJS = require('exceljs');
+      const workbook  = new ExcelJS.Workbook();
+      const sheetName = `${bigBatchName} - ${subBatchName}`.slice(0, 31); // Excel sheet name limit
+      const sheet     = workbook.addWorksheet(sheetName);
+
+      // Tiêu đề cột
+      sheet.columns = [
+        { header: 'STT',                  key: 'stt',           width: 6  },
+        { header: 'Mã sinh viên',         key: 'ma_sv',         width: 16 },
+        { header: 'Họ và tên',            key: 'ho_ten',        width: 28 },
+        { header: 'Lớp',                  key: 'lop',           width: 14 },
+        { header: 'Giảng viên hướng dẫn', key: 'gv',            width: 24 },
+        { header: 'Doanh nghiệp thực tập',key: 'dn',            width: 32 },
+        { header: 'Vị trí thực tập',      key: 'vi_tri',        width: 22 },
+        { header: 'Trạng thái',           key: 'trang_thai',    width: 18 },
+        { header: 'Ngày bắt đầu',         key: 'ngay_bat_dau',  width: 14 },
+        { header: 'Ngày kết thúc',        key: 'ngay_ket_thuc', width: 14 },
+      ];
+
+      // Style header row
+      const headerRow = sheet.getRow(1);
+      headerRow.font  = { bold: true, color: { argb: 'FFFFFFFF' } };
+      headerRow.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E40AF' } };
+      headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+      headerRow.height = 22;
+      headerRow.commit();
+
+      // Mapping trạng thái
+      const statusMap = {
+        'da-phan-cong':  'Đã phân công',
+        'chua-phan-cong':'Chưa phân công',
+        'dang-thuc-tap': 'Đang thực tập',
+        'hoan-thanh':    'Hoàn thành',
+      };
+
+      const fmtDate = (d) => {
+        if (!d) return '';
+        const date = new Date(d);
+        if (isNaN(date)) return String(d);
+        return `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')}/${date.getFullYear()}`;
+      };
+
+      students.forEach((sv, idx) => {
+        const row = sheet.addRow({
+          stt:           idx + 1,
+          ma_sv:         sv.ma_sinh_vien  || '',
+          ho_ten:        sv.ho_ten         || '',
+          lop:           sv.lop            || '',
+          gv:            sv.giang_vien_huong_dan || '',
+          dn:            sv.don_vi_thuc_tap      || '',
+          vi_tri:        sv.vi_tri_thuc_tap       || '',
+          trang_thai:    statusMap[sv.trang_thai_phan_cong] || sv.trang_thai_phan_cong || '',
+          ngay_bat_dau:  fmtDate(sv.ngay_bat_dau),
+          ngay_ket_thuc: fmtDate(sv.ngay_ket_thuc),
+        });
+        row.alignment = { vertical: 'middle' };
+        // Zebra stripe
+        if (idx % 2 === 1) {
+          row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F4FF' } };
+        }
+        row.commit();
+      });
+
+      // Thêm dòng tổng kết
+      if (students.length === 0) {
+        const emptyRow = sheet.addRow(['', '', '(Chưa có sinh viên nào trong đợt này)', '', '', '', '', '', '', '']);
+        emptyRow.getCell(3).font = { italic: true, color: { argb: 'FF6B7280' } };
+        emptyRow.commit();
+      }
+
+      // Freeze header
+      sheet.views = [{ state: 'frozen', ySplit: 1 }];
+      // Auto-filter
+      sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 10 } };
+
+      // File name
+      const safeBig = bigBatchName.replace(/[^a-zA-Z0-9À-ỹ\s]/g, '').replace(/\s+/g, '_');
+      const safeSub = subBatchName.replace(/[^a-zA-Z0-9À-ỹ\s]/g, '').replace(/\s+/g, '_');
+      const filename = `Danh_sach_SV_${safeBig}_${safeSub}.xlsx`;
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
+      res.setHeader('Cache-Control', 'no-cache');
+
+      await workbook.xlsx.write(res);
+      res.end();
+    } catch (error) {
+      console.error('❌ exportStudentsByPeriod:', error);
+      if (!res.headersSent) {
+        res.status(500).json({ success: false, message: 'Lỗi xuất Excel', error: error.message });
+      }
+    }
+  }
 }
 
 module.exports = DashboardController;

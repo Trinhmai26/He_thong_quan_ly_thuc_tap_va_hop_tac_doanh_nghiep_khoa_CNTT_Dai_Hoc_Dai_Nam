@@ -59,8 +59,32 @@ router.get('/summary',
  * @desc    Lấy tóm tắt hệ thống (public cho testing)
  * @access  Public
  */
-router.get('/summary-public', 
+router.get('/summary-public',
   DashboardController.getSummary
+);
+
+/**
+ * @route   GET /api/dashboard/students-by-period
+ * @desc    Lấy danh sách sinh viên theo đợt thực tập lớn + nhỏ
+ * @access  Private (Admin)
+ * @query   dot_thuc_tap_id, dot_thuc_tap_admin, page, limit
+ */
+router.get('/students-by-period',
+  authenticateToken,
+  requireAdmin,
+  DashboardController.getStudentsByPeriod
+);
+
+/**
+ * @route   GET /api/dashboard/export-students-by-period
+ * @desc    Xuất Excel danh sách SV theo đợt
+ * @access  Private (Admin)
+ * @query   dot_thuc_tap_id, dot_thuc_tap_admin, ten_dot_lon, ten_dot_nho
+ */
+router.get('/export-students-by-period',
+  authenticateToken,
+  requireAdmin,
+  DashboardController.exportStudentsByPeriod
 );
 
 module.exports = router;

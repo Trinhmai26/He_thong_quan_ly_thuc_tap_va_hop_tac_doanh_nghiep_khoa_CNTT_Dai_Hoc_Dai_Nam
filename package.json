@@ -1,4 +1,14 @@
 {
+  "scripts": {
+    "start": "start-services.bat",
+    "start:python": "start-python-services.bat",
+    "start:all": "powershell -ExecutionPolicy Bypass -File scripts\\start-all.ps1",
+    "start:python-only": "powershell -ExecutionPolicy Bypass -File scripts\\start-all.ps1 -PythonOnly",
+    "start:no-frontend": "powershell -ExecutionPolicy Bypass -File scripts\\start-all.ps1 -SkipFrontend",
+    "stop": "powershell -ExecutionPolicy Bypass -File scripts\\stop-all.ps1",
+    "cv-analyzer": "cd backend/cv_analyzer && set PORT=5000&& set TESSERACT_CMD=C:\\Program Files\\Tesseract-OCR\\tesseract.exe&& python app.py",
+    "zalo-bot": "cd ZALO/ZALO && set FLASK_RUN_PORT=5001&& set FLASK_RUN_HOST=0.0.0.0&& python app.py"
+  },
   "dependencies": {
     "ical-generator": "^10.2.0",
     "nodemailer": "^8.0.5"

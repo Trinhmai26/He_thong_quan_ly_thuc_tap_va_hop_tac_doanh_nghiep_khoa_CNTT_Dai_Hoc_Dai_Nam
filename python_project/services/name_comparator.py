@@ -190,9 +190,10 @@ def build_result(
     similarity:     float = 0.0,
 ) -> dict:
     """Build chuẩn response JSON trả về cho backend."""
-    is_match = content_match          # filename_match chỉ là thông tin bổ sung
+    # Chỉ chấp nhận khi nội dung CV khớp — tên file không đủ để xác thực
+    is_match = content_match
 
-    if is_match:
+    if content_match:
         message = "Tên ứng viên trong CV khớp với tài khoản upload"
     elif not extracted_name:
         message = "Không tìm thấy tên ứng viên trong nội dung CV"

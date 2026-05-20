@@ -8,61 +8,105 @@ const { enqueueMessage } = require('../services/zaloQueue');
 // Không gửi Zalo trực tiếp — mọi tin đi qua zalo_message_queue.
 // Worker (zaloWorker.js) sẽ gửi tuần tự để tránh xung đột tài khoản.
 
-async function _enqueueSlotNotifications(lecturerId, maGiangVien, slotId, { tieu_de, loai_bao_cao, end_at }) {
+// giang_vien_huong_dan lưu HO_TEN của giảng viên, không phải ma_giang_vien.
+// Phải truyền gvHoTen (req.user.hoTen) vào để query đúng.
+
+function _fmtDate(dt) {
+  if (!dt) return 'chưa xác định';
   try {
-    const isNhatKy   = loai_bao_cao === 'tuan';
-    const typeName   = isNhatKy ? 'nhật ký thực tập' : 'báo cáo thực tập';
-    const msgType    = isNhatKy ? 'new_diary_period' : 'new_report_period';
-    const deadline   = end_at
-      ? new Date(end_at).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })
-      : 'chưa xác định';
+    return new Date(dt).toLocaleString('vi-VN', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    });
+  } catch { return String(dt); }
+}
 
-    const notifTitle  = `Thông báo đợt nộp ${typeName}`;
-    const notifBody   = `Bạn có đợt nộp ${typeName} mới.\nTên đợt: ${tieu_de}\nHạn nộp: ${deadline}\nVui lòng đăng nhập hệ thống để nộp bài đúng hạn.`;
+async function _enqueueSlotNotifications(lecturerId, gvHoTen, slotId, { tieu_de, loai_bao_cao, start_at, end_at }) {
+  try {
+    const isNhatKy = loai_bao_cao === 'tuan';
+    const typeName = isNhatKy ? 'nhật ký thực tập' : 'báo cáo thực tập';
+    const msgType  = isNhatKy ? 'new_diary_period' : 'new_report_period';
+    const startFmt = _fmtDate(start_at);
+    const endFmt   = _fmtDate(end_at);
 
-    const reminderTitle = 'Nhắc hạn nộp bài';
-    const reminderBody  = `Bạn còn 24 giờ để nộp ${typeName}.\nTên đợt: ${tieu_de}\nHạn nộp: ${deadline}\nVui lòng hoàn thành và nộp bài đúng hạn.`;
-
-    // Thời điểm nhắc = deadline - 24h
     const reminderAt = end_at ? new Date(new Date(end_at).getTime() - 24 * 60 * 60 * 1000) : null;
     const now        = new Date();
 
-    // Chỉ lấy sinh viên của đúng giảng viên này
+    // giang_vien_huong_dan = ho_ten của GV → query bằng ho_ten, lấy cả tên SV
     const students = await db.query(
-      `SELECT id, so_dien_thoai FROM sinh_vien
+      `SELECT id, so_dien_thoai, ho_ten FROM sinh_vien
        WHERE giang_vien_huong_dan = ?
          AND so_dien_thoai IS NOT NULL AND TRIM(so_dien_thoai) != ''`,
-      [maGiangVien]
+      [gvHoTen]
     );
 
     if (!students.length) {
-      console.log(`[ZaloQueue] GV ${maGiangVien}: không có SV có SĐT.`);
-      return;
+      console.log(`[ZaloQueue] GV "${gvHoTen}": không có SV có SĐT. Không queue.`);
+      return 0;
     }
 
+    let queued = 0;
     for (const sv of students) {
-      // Tin thông báo tạo đợt — gửi ngay
+      const svName = sv.ho_ten || 'Sinh viên';
+
+      // ── Tin thông báo tạo đợt ─────────────────────────────────────
+      const notifTitle = '📢 THÔNG BÁO ĐỢT NỘP MỚI';
+      const notifBody  = [
+        `Xin chào ${svName},`,
+        '',
+        `Giảng viên ${gvHoTen} vừa tạo đợt nộp ${typeName} mới.`,
+        '',
+        `📌 Tên đợt: ${tieu_de}`,
+        `📅 Thời gian bắt đầu: ${startFmt}`,
+        `⏰ Hạn nộp: ${endFmt}`,
+        '',
+        'Sinh viên vui lòng truy cập hệ thống quản lý thực tập để nộp đúng thời hạn.',
+        '',
+        'Trân trọng,',
+        'Khoa Công nghệ Thông tin - Trường Đại học Đại Nam',
+      ].join('\n');
+
+      console.log(`[ZaloQueue] Tin tạo đợt → SV "${svName}" (${sv.so_dien_thoai}):\n${notifBody}`);
+
       await enqueueMessage({
         lecturerId, studentId: sv.id, phone: sv.so_dien_thoai,
         title: notifTitle, message: notifBody,
         type: msgType, relatedId: slotId,
         scheduledAt: now, priority: 5,
       });
+      queued++;
 
-      // Tin nhắc 24h — gửi vào thời điểm = deadline - 24h (nếu còn trong tương lai)
+      // ── Tin nhắc 24h trước deadline ───────────────────────────────
       if (reminderAt && reminderAt > now) {
+        const remTitle = '⏰ NHẮC HẠN NỘP';
+        const remBody  = [
+          `Xin chào ${svName},`,
+          '',
+          `Đợt nộp ${typeName} của bạn sắp hết hạn trong vòng 24 giờ.`,
+          '',
+          `📌 Tên đợt: ${tieu_de}`,
+          `⏰ Hạn nộp: ${endFmt}`,
+          '',
+          'Bạn vui lòng hoàn thành và nộp trên hệ thống trước thời hạn để tránh bị ghi nhận nộp muộn.',
+          '',
+          'Trân trọng,',
+          'Khoa Công nghệ Thông tin - Trường Đại học Đại Nam',
+        ].join('\n');
+
         await enqueueMessage({
           lecturerId, studentId: sv.id, phone: sv.so_dien_thoai,
-          title: reminderTitle, message: reminderBody,
+          title: remTitle, message: remBody,
           type: 'deadline_24h_reminder', relatedId: slotId,
           scheduledAt: reminderAt, priority: 3,
         });
       }
     }
 
-    console.log(`[ZaloQueue] GV ${maGiangVien} | Slot #${slotId} "${tieu_de}" | Đã queue ${students.length} SV`);
+    console.log(`[ZaloQueue] GV "${gvHoTen}" | Slot #${slotId} "${tieu_de}" | Queue ${queued} SV | Loại: ${msgType}`);
+    return queued;
   } catch (err) {
     console.error('[ZaloQueue] _enqueueSlotNotifications error:', err.message);
+    return 0;
   }
 }
 // ─────────────────────────────────────────────────────────────────────────────
@@ -110,18 +154,39 @@ module.exports = {
   async createSlot(req, res) {
     try {
       const maGiangVien = req.user?.maGiangVien || req.user?.userId;
+      // giang_vien_huong_dan lưu ho_ten → dùng hoTen để query sinh viên
+      const gvHoTen     = String(req.user?.hoTen || req.user?.ho_ten || '').trim();
       if (!maGiangVien) return res.status(401).json({ message: 'Thiếu thông tin giảng viên' });
+
       const { tieu_de, loai_bao_cao = 'tuan', mo_ta, start_at, end_at } = req.body || {};
       if (!tieu_de || !start_at || !end_at) {
         return res.status(400).json({ message: 'Thiếu tieu_de/start_at/end_at' });
       }
+
       const { id } = await TeacherSubmissions.createSlot(maGiangVien, { tieu_de, loai_bao_cao, mo_ta, start_at, end_at });
 
-      // Đưa vào hàng đợi Zalo — không gửi trực tiếp, không block response
-      _enqueueSlotNotifications(req.user?.id || null, maGiangVien, id, { tieu_de, loai_bao_cao, end_at })
-        .catch(err => console.error('[ZaloQueue] enqueue error:', err.message));
+      // Đưa vào hàng đợi Zalo — dùng gvHoTen để query đúng sinh viên
+      let zaloQueued = 0;
+      if (gvHoTen) {
+        zaloQueued = await _enqueueSlotNotifications(
+          req.user?.id || null, gvHoTen, id,
+          { tieu_de, loai_bao_cao, start_at, end_at }
+        ).catch(err => {
+          console.error('[ZaloQueue] enqueue error:', err.message);
+          return 0;
+        });
+      } else {
+        console.warn(`[ZaloQueue] createSlot: không có hoTen trong JWT — bỏ qua queue Zalo`);
+      }
 
-      return res.json({ id });
+      return res.json({
+        id,
+        message: 'Tạo đợt thành công',
+        zalo_queued: zaloQueued,
+        zalo_note: zaloQueued > 0
+          ? `Đã đưa thông báo vào hàng đợi cho ${zaloQueued} sinh viên. Worker sẽ gửi Zalo trong vài phút.`
+          : 'Không có sinh viên nào được queue (chưa có SĐT hoặc chưa được phân công).',
+      });
     } catch (err) {
       console.error('createSlot error:', err);
       return res.status(500).json({ message: 'Lỗi tạo đợt nộp' });

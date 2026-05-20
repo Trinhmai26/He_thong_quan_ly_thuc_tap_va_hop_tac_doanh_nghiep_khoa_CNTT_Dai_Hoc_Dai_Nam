@@ -2,6 +2,32 @@ const nodemailer = require('nodemailer');
 const icalModule = require('ical-generator');
 const ical = icalModule.default || icalModule;
 
+const EMAIL_ENABLED = process.env.EMAIL_ENABLED === 'true';
+const EMAIL_COMPANY_TO_STUDENT_ENABLED = process.env.EMAIL_COMPANY_TO_STUDENT_ENABLED === 'true';
+const COMPANY_TO_STUDENT_EMAIL_ENABLED = EMAIL_ENABLED || EMAIL_COMPANY_TO_STUDENT_ENABLED;
+const EMAIL_DISABLED_RESULT = {
+  success: true,
+  skipped: true,
+  reason: 'EMAIL_DISABLED'
+};
+
+function skipDisabledEmail({ recipientType = 'sinh viên', recipientName, recipientEmail, subject }) {
+  const name = recipientName || 'Không rõ tên';
+  const email = recipientEmail || 'Không có email';
+  const title = subject || 'Không có tiêu đề';
+  console.log(`[EMAIL DISABLED] Bỏ qua gửi email cho ${recipientType}: ${name} / ${email} / ${title}`);
+  return { ...EMAIL_DISABLED_RESULT };
+}
+
+function skipEmail(reason, message) {
+  console.warn(message);
+  return {
+    success: true,
+    skipped: true,
+    reason
+  };
+}
+
 /**
  * Tạo transporter nodemailer từ biến môi trường
  */
@@ -60,9 +86,21 @@ async function sendInterviewInviteEmail({
   senderName = 'Bộ phận Nhân sự',
   senderTitle = 'Đại diện Doanh nghiệp'
 }) {
+  if (!COMPANY_TO_STUDENT_EMAIL_ENABLED) {
+    return skipDisabledEmail({
+      recipientName: studentName,
+      recipientEmail: studentEmail,
+      subject: position
+        ? `${companyName} - Thư mời phỏng vấn vị trí ${position}`
+        : `${companyName} - Thư mời phỏng vấn thực tập`
+    });
+  }
+
   if (!process.env.EMAIL_USER || process.env.EMAIL_USER === 'your_email@gmail.com') {
-    console.warn('[EmailService] EMAIL_USER chưa được cấu hình — bỏ qua gửi email phỏng vấn');
-    return;
+    return skipEmail(
+      'EMAIL_NOT_CONFIGURED',
+      '[EmailService] EMAIL_USER chưa được cấu hình — bỏ qua gửi email phỏng vấn'
+    );
   }
 
   // Tính thời gian bắt đầu/kết thúc
@@ -184,6 +222,7 @@ async function sendInterviewInviteEmail({
   });
 
   console.log(`[EmailService] Đã gửi email thư mời phỏng vấn đến ${studentEmail}`);
+  return { success: true, sent: true };
 }
 
 async function sendInterviewResultEmail({
@@ -200,9 +239,24 @@ async function sendInterviewResultEmail({
   senderTitle = 'Đại diện Doanh nghiệp',
   isAdmin = false
 }) {
+  const canSendInterviewResultEmail = isAdmin ? EMAIL_ENABLED : COMPANY_TO_STUDENT_EMAIL_ENABLED;
+
+  if (!canSendInterviewResultEmail) {
+    return skipDisabledEmail({
+      recipientType: isAdmin ? 'admin' : 'sinh viên',
+      recipientName: toName || studentName,
+      recipientEmail: toEmail,
+      subject: isAdmin
+        ? `[Kết quả PV] ${studentName} (${studentCode}) - ${companyName}`
+        : `Kết quả phỏng vấn thực tập - ${companyName}`
+    });
+  }
+
   if (!process.env.EMAIL_USER || process.env.EMAIL_USER === 'your_email@gmail.com') {
-    console.warn('[EmailService] EMAIL_USER chưa được cấu hình — bỏ qua gửi email kết quả phỏng vấn');
-    return;
+    return skipEmail(
+      'EMAIL_NOT_CONFIGURED',
+      '[EmailService] EMAIL_USER chưa được cấu hình — bỏ qua gửi email kết quả phỏng vấn'
+    );
   }
 
   const isPass = result === 'PASS';
@@ -248,7 +302,7 @@ async function sendInterviewResultEmail({
       html: htmlBody
     });
     console.log(`[EmailService] Đã gửi email kết quả PV (${result}) → admin ${toEmail}`);
-    return;
+    return { success: true, sent: true };
   }
 
   // ─── EMAIL GỬI CHO SINH VIÊN – PASS ──────────────────────────────────────
@@ -299,7 +353,7 @@ async function sendInterviewResultEmail({
       html: htmlBody
     });
     console.log(`[EmailService] Đã gửi email PASS → sinh viên ${toEmail}`);
-    return;
+    return { success: true, sent: true };
   }
 
   // ─── EMAIL GỬI CHO SINH VIÊN – FAIL ──────────────────────────────────────
@@ -342,6 +396,206 @@ async function sendInterviewResultEmail({
     html: htmlBody
   });
   console.log(`[EmailService] Đã gửi email FAIL → sinh viên ${toEmail}`);
+  return { success: true, sent: true };
 }
 
-module.exports = { sendInterviewInviteEmail, sendInterviewResultEmail };
+/**
+ * Gửi email thông báo duyệt đăng ký thực tập đến sinh viên
+ *
+ * @param {object} params
+ * @param {string} params.studentEmail   - Email sinh viên
+ * @param {string} params.studentName    - Họ tên sinh viên
+ * @param {string} params.studentCode    - Mã sinh viên
+ * @param {string} params.companyName    - Tên doanh nghiệp/đơn vị thực tập
+ * @param {string} params.position       - Vị trí thực tập
+ * @param {string} params.nguyenVong     - 'Tự liên hệ' hoặc 'Khoa giới thiệu'
+ * @param {string|null} params.ghiChu    - Ghi chú từ admin (tuỳ chọn)
+ */
+async function sendApprovalEmail({
+  studentEmail,
+  studentName,
+  studentCode = '',
+  companyName = '',
+  position = '',
+  nguyenVong = '',
+  ghiChu = null
+}) {
+  if (!EMAIL_ENABLED) {
+    return skipDisabledEmail({
+      recipientName: studentName,
+      recipientEmail: studentEmail,
+      subject: 'Đăng ký thực tập của bạn đã được duyệt - Khoa CNTT ĐH Đại Nam'
+    });
+  }
+
+  if (!process.env.EMAIL_USER || process.env.EMAIL_USER === 'your_email@gmail.com') {
+    return skipEmail(
+      'EMAIL_NOT_CONFIGURED',
+      '[EmailService] EMAIL_USER chưa được cấu hình — bỏ qua gửi email duyệt'
+    );
+  }
+  if (!studentEmail) {
+    return skipEmail(
+      'NO_RECIPIENT_EMAIL',
+      '[EmailService] Sinh viên không có email — bỏ qua'
+    );
+  }
+
+  const transporter = createTransporter();
+  const companyRow = companyName
+    ? `<tr><td style="padding:10px 14px;background:#f3f4f6;font-weight:600;border-top:1px solid #e5e7eb;">Đơn vị thực tập</td><td style="padding:10px 14px;border-top:1px solid #e5e7eb;">${companyName}</td></tr>`
+    : '';
+  const positionRow = position
+    ? `<tr><td style="padding:10px 14px;background:#f3f4f6;font-weight:600;border-top:1px solid #e5e7eb;">Vị trí</td><td style="padding:10px 14px;border-top:1px solid #e5e7eb;">${position}</td></tr>`
+    : '';
+  const nguyenVongRow = nguyenVong
+    ? `<tr><td style="padding:10px 14px;background:#f3f4f6;font-weight:600;border-top:1px solid #e5e7eb;">Nguyện vọng</td><td style="padding:10px 14px;border-top:1px solid #e5e7eb;">${nguyenVong}</td></tr>`
+    : '';
+  const ghiChuRow = ghiChu
+    ? `<tr><td style="padding:10px 14px;background:#f3f4f6;font-weight:600;border-top:1px solid #e5e7eb;">Ghi chú</td><td style="padding:10px 14px;border-top:1px solid #e5e7eb;">${ghiChu}</td></tr>`
+    : '';
+
+  const html = `
+<!DOCTYPE html>
+<html lang="vi">
+<head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:Arial,sans-serif;">
+  <div style="max-width:600px;margin:32px auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.10);">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#1e40af,#2563eb);padding:32px 32px 24px;text-align:center;">
+      <div style="font-size:40px;margin-bottom:8px;">✅</div>
+      <h1 style="color:white;margin:0;font-size:22px;font-weight:700;">Đăng ký thực tập đã được duyệt</h1>
+      <p style="color:#bfdbfe;margin:8px 0 0;font-size:14px;">Khoa Công nghệ Thông tin – Đại học Đại Nam</p>
+    </div>
+
+    <!-- Body -->
+    <div style="padding:32px;">
+      <p style="color:#374151;font-size:15px;margin:0 0 16px;">Kính gửi <strong>${studentName}</strong>,</p>
+      <p style="color:#374151;font-size:15px;margin:0 0 24px;">
+        Khoa Công nghệ Thông tin trân trọng thông báo rằng đăng ký thực tập của bạn đã được <strong style="color:#16a34a;">phê duyệt</strong>.
+        Vui lòng đăng nhập vào hệ thống để theo dõi thông tin chi tiết.
+      </p>
+
+      <!-- Info table -->
+      <table style="border-collapse:collapse;width:100%;background:#f9fafb;border-radius:8px;overflow:hidden;border:1px solid #e5e7eb;margin-bottom:24px;">
+        <tr><td style="padding:10px 14px;background:#f3f4f6;font-weight:600;width:160px;">Mã sinh viên</td><td style="padding:10px 14px;">${studentCode || '—'}</td></tr>
+        <tr><td style="padding:10px 14px;background:#f3f4f6;font-weight:600;border-top:1px solid #e5e7eb;">Họ tên</td><td style="padding:10px 14px;border-top:1px solid #e5e7eb;">${studentName}</td></tr>
+        ${nguyenVongRow}${companyRow}${positionRow}${ghiChuRow}
+        <tr><td style="padding:10px 14px;background:#f3f4f6;font-weight:600;border-top:1px solid #e5e7eb;">Trạng thái</td><td style="padding:10px 14px;border-top:1px solid #e5e7eb;"><span style="background:#dcfce7;color:#16a34a;padding:3px 10px;border-radius:20px;font-weight:700;font-size:13px;">Đã duyệt ✓</span></td></tr>
+      </table>
+
+      <p style="color:#374151;font-size:14px;margin:0 0 24px;">
+        Nếu có bất kỳ thắc mắc nào, vui lòng liên hệ với Khoa hoặc phụ trách thực tập của bạn.
+      </p>
+
+      <div style="text-align:center;margin-bottom:24px;">
+        <a href="http://localhost:5173" style="background:#2563eb;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;">Đăng nhập hệ thống →</a>
+      </div>
+    </div>
+
+    <div style="background:#f0f9ff;border-top:1px solid #bae6fd;padding:14px 32px;text-align:center;">
+      <p style="margin:0;color:#0369a1;font-size:12px;">Email được gửi tự động từ Hệ thống Quản lý Thực tập – Khoa CNTT, Đại học Đại Nam. Vui lòng không trả lời email này.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  await transporter.sendMail({
+    from: `"Khoa CNTT – Đại học Đại Nam" <${process.env.EMAIL_USER}>`,
+    to: studentEmail,
+    subject: 'Đăng ký thực tập của bạn đã được duyệt – Khoa CNTT ĐH Đại Nam',
+    html
+  });
+
+  return { success: true, sent: true };
+}
+
+/**
+ * Gửi email thông báo khoa giới thiệu doanh nghiệp thực tập
+ * Dùng riêng cho luồng tự động gán doanh nghiệp cho sinh viên "Khoa giới thiệu"
+ */
+async function sendKhoaGioiThieuAssignmentEmail({
+  studentEmail,
+  studentName,
+  studentCode = '',
+  companyName = '',
+  position = ''
+}) {
+  if (!EMAIL_ENABLED) {
+    return skipDisabledEmail({
+      recipientName: studentName,
+      recipientEmail: studentEmail,
+      subject: '[Thông báo] Doanh nghiệp thực tập của bạn đã được xác nhận - Khoa CNTT ĐH Đại Nam'
+    });
+  }
+
+  if (!process.env.EMAIL_USER || process.env.EMAIL_USER === 'your_email@gmail.com') {
+    return skipEmail(
+      'EMAIL_NOT_CONFIGURED',
+      '[EmailService] EMAIL_USER chưa được cấu hình — bỏ qua gửi email gán doanh nghiệp'
+    );
+  }
+  if (!studentEmail) {
+    return skipEmail(
+      'NO_RECIPIENT_EMAIL',
+      '[EmailService] Sinh viên không có email — bỏ qua'
+    );
+  }
+
+  const transporter = createTransporter();
+
+  const positionRow = position
+    ? `<tr><td style="padding:10px 14px;background:#f3f4f6;font-weight:600;border-top:1px solid #e5e7eb;">Vị trí thực tập</td><td style="padding:10px 14px;border-top:1px solid #e5e7eb;">${position}</td></tr>`
+    : '';
+
+  const html = `
+<!DOCTYPE html>
+<html lang="vi">
+<head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:Arial,sans-serif;">
+  <div style="max-width:600px;margin:32px auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.10);">
+    <div style="background:linear-gradient(135deg,#1e40af,#2563eb);padding:32px 32px 24px;text-align:center;">
+      <div style="font-size:40px;margin-bottom:8px;">🏢</div>
+      <h1 style="color:white;margin:0;font-size:22px;font-weight:700;">Thông báo doanh nghiệp thực tập</h1>
+      <p style="color:#bfdbfe;margin:8px 0 0;font-size:14px;">Khoa Công nghệ Thông tin – Đại học Đại Nam</p>
+    </div>
+    <div style="padding:32px;">
+      <p style="color:#374151;font-size:15px;margin:0 0 16px;">Xin chào <strong>${studentName}</strong>,</p>
+      <p style="color:#374151;font-size:15px;margin:0 0 24px;">
+        Bạn đã được <strong style="color:#1e40af;">Khoa giới thiệu</strong> doanh nghiệp thực tập:
+        <strong style="color:#16a34a;">${companyName}</strong>.
+      </p>
+      <p style="color:#374151;font-size:15px;margin:0 0 24px;">
+        Hồ sơ của bạn hiện đã được chuyển sang bước <strong>Doanh nghiệp phỏng vấn</strong>.
+        Vui lòng đăng nhập hệ thống để kiểm tra thông tin chi tiết.
+      </p>
+      <table style="border-collapse:collapse;width:100%;background:#f9fafb;border-radius:8px;overflow:hidden;border:1px solid #e5e7eb;margin-bottom:24px;">
+        <tr><td style="padding:10px 14px;background:#f3f4f6;font-weight:600;width:160px;">Mã sinh viên</td><td style="padding:10px 14px;">${studentCode || '—'}</td></tr>
+        <tr><td style="padding:10px 14px;background:#f3f4f6;font-weight:600;border-top:1px solid #e5e7eb;">Họ tên</td><td style="padding:10px 14px;border-top:1px solid #e5e7eb;">${studentName}</td></tr>
+        <tr><td style="padding:10px 14px;background:#f3f4f6;font-weight:600;border-top:1px solid #e5e7eb;">Doanh nghiệp thực tập</td><td style="padding:10px 14px;border-top:1px solid #e5e7eb;"><strong>${companyName}</strong></td></tr>
+        ${positionRow}
+        <tr><td style="padding:10px 14px;background:#f3f4f6;font-weight:600;border-top:1px solid #e5e7eb;">Bước tiếp theo</td><td style="padding:10px 14px;border-top:1px solid #e5e7eb;"><span style="background:#dbeafe;color:#1e40af;padding:3px 10px;border-radius:20px;font-weight:700;font-size:13px;">Doanh nghiệp phỏng vấn 📋</span></td></tr>
+        <tr><td style="padding:10px 14px;background:#f3f4f6;font-weight:600;border-top:1px solid #e5e7eb;">Trạng thái</td><td style="padding:10px 14px;border-top:1px solid #e5e7eb;"><span style="background:#dcfce7;color:#16a34a;padding:3px 10px;border-radius:20px;font-weight:700;font-size:13px;">Đã duyệt ✓</span></td></tr>
+      </table>
+      <div style="text-align:center;margin-bottom:24px;">
+        <a href="http://localhost:5173" style="background:#2563eb;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;">Đăng nhập hệ thống →</a>
+      </div>
+    </div>
+    <div style="background:#f0f9ff;border-top:1px solid #bae6fd;padding:14px 32px;text-align:center;">
+      <p style="margin:0;color:#0369a1;font-size:12px;">Email được gửi tự động từ Hệ thống Quản lý Thực tập – Khoa CNTT, Đại học Đại Nam. Vui lòng không trả lời email này.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  await transporter.sendMail({
+    from: `"Khoa CNTT – Đại học Đại Nam" <${process.env.EMAIL_USER}>`,
+    to: studentEmail,
+    subject: '[Thông báo] Doanh nghiệp thực tập của bạn đã được xác nhận – Khoa CNTT ĐH Đại Nam',
+    html
+  });
+
+  return { success: true, sent: true };
+}
+
+module.exports = { sendInterviewInviteEmail, sendInterviewResultEmail, sendApprovalEmail, sendKhoaGioiThieuAssignmentEmail };

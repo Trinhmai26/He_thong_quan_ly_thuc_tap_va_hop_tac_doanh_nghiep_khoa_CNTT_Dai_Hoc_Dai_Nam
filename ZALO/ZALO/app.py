@@ -13,6 +13,10 @@ from zalo_service import ServiceError, ZaloService
 _CORS_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
+    "http://localhost:5175",
+    "http://127.0.0.1:5175",
     "http://localhost:3001",
     "http://127.0.0.1:3001",
 ]
@@ -59,19 +63,21 @@ def create_app(config_path: Optional[str] = None, service: Optional[ZaloService]
     @app.post("/send-message")
     def send_message_to_student():
         """
-        Gửi tin nhắn Zalo đến 1 sinh viên qua SĐT.
-        Body: { "phone": "...", "title": "...", "message": "..." }
+        Gửi tin nhắn Zalo đến 1 sinh viên.
+        Body: { "phone": "...", "zaloUserId": "...", "title": "...", "message": "..." }
+        Ưu tiên zaloUserId nếu có (không cần kết bạn), fallback sang phone.
         """
         payload = request.get_json(silent=True)
         if not isinstance(payload, dict):
             return jsonify({"success": False, "message": "JSON body required"}), 400
 
-        phone = str(payload.get("phone") or "").strip()
-        title = str(payload.get("title") or "").strip()
-        message_text = str(payload.get("message") or "").strip()
+        phone         = str(payload.get("phone") or "").strip()
+        zalo_user_id  = str(payload.get("zaloUserId") or payload.get("zalo_user_id") or "").strip()
+        title         = str(payload.get("title") or "").strip()
+        message_text  = str(payload.get("message") or "").strip()
 
-        if not phone:
-            return jsonify({"success": False, "message": "phone là bắt buộc"}), 400
+        if not phone and not zalo_user_id:
+            return jsonify({"success": False, "message": "phone hoặc zaloUserId là bắt buộc"}), 400
         if not message_text:
             return jsonify({"success": False, "message": "message là bắt buộc"}), 400
 
@@ -79,7 +85,13 @@ def create_app(config_path: Optional[str] = None, service: Optional[ZaloService]
 
         try:
             zalo = _service_or_raise(app)
-            result = zalo.send_individual_message(phone, full_message)
+
+            # Ưu tiên gửi qua zalo_user_id (không cần kết bạn, không cần SĐT public)
+            if zalo_user_id:
+                result = zalo.send_message_by_uid(zalo_user_id, full_message)
+            else:
+                result = zalo.send_individual_message(phone, full_message)
+
             if result.get("success"):
                 return jsonify({"success": True, "message": "Đã gửi Zalo thành công"})
             return jsonify({"success": False, "message": result.get("error", "Không gửi được Zalo")}), 422

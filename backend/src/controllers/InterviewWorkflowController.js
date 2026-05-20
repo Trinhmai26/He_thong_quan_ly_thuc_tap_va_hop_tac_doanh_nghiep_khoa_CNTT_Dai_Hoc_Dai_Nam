@@ -497,6 +497,8 @@ class InterviewWorkflowController {
         ]
       );
 
+      let studentEmailResult = null;
+
       // Gửi thông báo in-app và email cho sinh viên
       try {
         const appDetail = await connection.query(
@@ -522,18 +524,34 @@ class InterviewWorkflowController {
             );
           }
           if (detail.email_ca_nhan) {
-            sendInterviewInviteEmail({
-              studentEmail: detail.email_ca_nhan,
-              studentName: detail.ho_ten || 'Sinh viên',
-              companyName: detail.ten_cong_ty || company.ten_cong_ty,
-              interviewDate,
-              interviewTime,
-              interviewLocation,
-              interviewNote: interviewNote || null,
-              position: viTriInvite,
-              senderName: senderNameInvite,
-              senderTitle: senderTitleInvite
-            }).catch(err => console.error('[CompanyConfirmInterview] Lỗi gửi email lịch phỏng vấn:', err));
+            try {
+              studentEmailResult = await sendInterviewInviteEmail({
+                studentEmail: detail.email_ca_nhan,
+                studentName: detail.ho_ten || 'Sinh viên',
+                companyName: detail.ten_cong_ty || company.ten_cong_ty,
+                interviewDate,
+                interviewTime,
+                interviewLocation,
+                interviewNote: interviewNote || null,
+                position: viTriInvite,
+                senderName: senderNameInvite,
+                senderTitle: senderTitleInvite
+              });
+              console.log('[CompanyConfirmInterview] Email sinh vien result:', studentEmailResult);
+            } catch (err) {
+              studentEmailResult = {
+                success: false,
+                reason: 'EMAIL_SEND_ERROR',
+                error: err && err.message ? err.message : String(err)
+              };
+              console.error('[CompanyConfirmInterview] Loi gui email lich phong van:', err);
+            }
+          } else {
+            studentEmailResult = {
+              success: true,
+              skipped: true,
+              reason: 'NO_STUDENT_EMAIL'
+            };
           }
         }
       } catch (notifErr) {
@@ -546,7 +564,8 @@ class InterviewWorkflowController {
         data: {
           id: Number(id),
           status: STATUS.INTERVIEW_SCHEDULED,
-          redirectStudentTo: '/student/interview'
+          redirectStudentTo: '/student/interview',
+          studentEmail: studentEmailResult
         }
       });
     } catch (error) {
@@ -611,6 +630,8 @@ class InterviewWorkflowController {
         ]
       );
 
+      let studentEmailResult = null;
+
       // Gửi thông báo và email cho sinh viên + admin
       try {
         await ensureNotificationsTable();
@@ -659,20 +680,36 @@ class InterviewWorkflowController {
 
         // 3. Email cho sinh viên
         if (studentEmail) {
-          sendInterviewResultEmail({
-            toEmail: studentEmail,
-            toName: studentName,
-            studentName,
-            studentCode,
-            companyName: companyNameDisplay,
-            result: normalized,
-            resultNote: noteText,
-            position: viTri,
-            companyAddress,
-            senderName,
-            senderTitle,
-            isAdmin: false
-          }).catch(err => console.error('[companySetInterviewResult] Lỗi gửi email sinh viên:', err));
+          try {
+            studentEmailResult = await sendInterviewResultEmail({
+              toEmail: studentEmail,
+              toName: studentName,
+              studentName,
+              studentCode,
+              companyName: companyNameDisplay,
+              result: normalized,
+              resultNote: noteText,
+              position: viTri,
+              companyAddress,
+              senderName,
+              senderTitle,
+              isAdmin: false
+            });
+            console.log('[companySetInterviewResult] Email sinh vien result:', studentEmailResult);
+          } catch (err) {
+            studentEmailResult = {
+              success: false,
+              reason: 'EMAIL_SEND_ERROR',
+              error: err && err.message ? err.message : String(err)
+            };
+            console.error('[companySetInterviewResult] Loi gui email sinh vien:', err);
+          }
+        } else {
+          studentEmailResult = {
+            success: true,
+            skipped: true,
+            reason: 'NO_STUDENT_EMAIL'
+          };
         }
 
         // 4. Thông báo in-app + email cho tất cả admin
@@ -712,7 +749,11 @@ class InterviewWorkflowController {
       return res.json({
         success: true,
         message: 'Cập nhật kết quả phỏng vấn thành công',
-        data: { id: Number(id), status: normalized }
+        data: {
+          id: Number(id),
+          status: normalized,
+          studentEmail: studentEmailResult
+        }
       });
     } catch (error) {
       console.error('Interview workflow companySetInterviewResult error:', error);

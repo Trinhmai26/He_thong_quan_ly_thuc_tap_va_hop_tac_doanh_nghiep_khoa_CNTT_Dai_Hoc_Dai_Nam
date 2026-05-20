@@ -336,8 +336,11 @@ class GiangVien {
                 fields.push('ho_ten = ?');
                 values.push(updateData.ho_ten);
             }
-            if (updateData.email !== undefined) {
-                fields.push('email = ?');
+            if (updateData.email_ca_nhan !== undefined) {
+                fields.push('email_ca_nhan = ?');
+                values.push(updateData.email_ca_nhan);
+            } else if (updateData.email !== undefined) {
+                fields.push('email_ca_nhan = ?');
                 values.push(updateData.email);
             }
             if (updateData.so_dien_thoai !== undefined) {

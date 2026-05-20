@@ -56,24 +56,28 @@ async function remindStudentsBeforeDeadline() {
 
 // ─── Đưa nhắc hạn vào queue cho 1 đợt ───────────────────────────────────────
 
-async function _enqueueRemindersForSlot(slot) {
-  const type     = slot.loai_bao_cao === 'tuan' ? 'diary' : 'report';
-  const typeName = type === 'diary' ? 'nhật ký thực tập' : 'báo cáo thực tập';
-  const deadline = new Date(slot.end_at).toLocaleString('vi-VN', {
-    dateStyle: 'short', timeStyle: 'short',
-  });
-  const title = 'Nhắc hạn nộp bài';
-  const body  = `Bạn còn 24 giờ để nộp ${typeName}.\nTên đợt: ${slot.tieu_de}\nHạn nộp: ${deadline}\nVui lòng hoàn thành và nộp bài đúng hạn.`;
+function _fmtDate(dt) {
+  if (!dt) return 'chưa xác định';
+  try {
+    return new Date(dt).toLocaleString('vi-VN', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    });
+  } catch { return String(dt); }
+}
 
-  // Lấy sinh viên của giảng viên:
-  // - có SĐT
-  // - chưa nộp bài cho đợt này
-  // - chưa có queue pending/sent với type deadline_24h_reminder + related_id này
+async function _enqueueRemindersForSlot(slot) {
+  const typeName = slot.loai_bao_cao === 'tuan' ? 'nhật ký thực tập' : 'báo cáo thực tập';
+  const endFmt   = _fmtDate(slot.end_at);
+
+  // giang_vien_huong_dan lưu ho_ten của GV → JOIN để lấy ho_ten từ ma_giang_vien
+  // Lấy thêm sv.ho_ten để cá nhân hoá tin nhắn
   const students = await db.query(`
-    SELECT sv.id, sv.ma_sinh_vien, sv.so_dien_thoai
+    SELECT sv.id, sv.ma_sinh_vien, sv.so_dien_thoai, sv.ho_ten
     FROM sinh_vien sv
-    WHERE sv.giang_vien_huong_dan = ?
-      AND sv.so_dien_thoai IS NOT NULL AND TRIM(sv.so_dien_thoai) != ''
+    INNER JOIN giang_vien gv ON gv.ho_ten = sv.giang_vien_huong_dan
+                             AND gv.ma_giang_vien = ?
+    WHERE sv.so_dien_thoai IS NOT NULL AND TRIM(sv.so_dien_thoai) != ''
       AND NOT EXISTS (
         SELECT 1 FROM bai_nop_cua_sinh_vien bnop
         WHERE bnop.slot_id = ? AND bnop.ma_sinh_vien = sv.ma_sinh_vien
@@ -94,16 +98,35 @@ async function _enqueueRemindersForSlot(slot) {
 
   let count = 0;
   for (const sv of students) {
+    const svName = sv.ho_ten || 'Sinh viên';
+
+    const title = '⏰ NHẮC HẠN NỘP';
+    const body  = [
+      `Xin chào ${svName},`,
+      '',
+      `Đợt nộp ${typeName} của bạn sắp hết hạn trong vòng 24 giờ.`,
+      '',
+      `📌 Tên đợt: ${slot.tieu_de}`,
+      `⏰ Hạn nộp: ${endFmt}`,
+      '',
+      'Bạn vui lòng hoàn thành và nộp trên hệ thống trước thời hạn để tránh bị ghi nhận nộp muộn.',
+      '',
+      'Trân trọng,',
+      'Khoa Công nghệ Thông tin - Trường Đại học Đại Nam',
+    ].join('\n');
+
+    console.log(`[Reminder] Tin nhắc → SV "${svName}" (${sv.so_dien_thoai}) | Slot #${slot.id}:\n${body}`);
+
     await enqueueMessage({
-      lecturerId: null,
-      studentId:  sv.id,
-      phone:      sv.so_dien_thoai,
+      lecturerId:  null,
+      studentId:   sv.id,
+      phone:       sv.so_dien_thoai,
       title,
-      message:    body,
-      type:       'deadline_24h_reminder',
-      relatedId:  slot.id,
+      message:     body,
+      type:        'deadline_24h_reminder',
+      relatedId:   slot.id,
       scheduledAt: new Date(),
-      priority:   3,
+      priority:    3,
     });
     count++;
   }
