@@ -68,20 +68,26 @@ async function _processOne(msg) {
     if (cancelled) return;
   }
 
-  // 3. Lấy SĐT nếu chưa có trong queue
-  const phone = await _resolvePhone(msg);
-  if (!phone) {
-    await _markFailed(msg.id, msg.retry_count, 'Không có số điện thoại');
+  // 3. Lấy SĐT và zalo_user_id
+  const phone      = await _resolvePhone(msg);
+  const zaloUserId = await _resolveZaloUserId(msg);
+
+  if (!phone && !zaloUserId) {
+    await _markFailed(msg.id, msg.retry_count, 'Không có số điện thoại hoặc zalo_user_id');
     return;
   }
 
-  // 4. Gọi Flask /send-message
+  // 4. Gọi Flask /send-message — ưu tiên zaloUserId (không cần kết bạn)
   let success = false;
   let failReason = '';
   try {
+    const payload = { title: msg.title, message: msg.message };
+    if (zaloUserId) payload.zaloUserId = zaloUserId;
+    if (phone)      payload.phone      = phone;
+
     const resp = await axios.post(
       `${FLASK_URL()}/send-message`,
-      { phone, title: msg.title, message: msg.message },
+      payload,
       { timeout: 30000, validateStatus: () => true }
     );
     success    = resp.data?.success === true;
@@ -131,6 +137,14 @@ async function _resolvePhone(msg) {
   try {
     const rows = await db.query('SELECT so_dien_thoai FROM sinh_vien WHERE id = ? LIMIT 1', [msg.student_id]);
     return rows[0]?.so_dien_thoai?.trim() || null;
+  } catch { return null; }
+}
+
+async function _resolveZaloUserId(msg) {
+  if (!msg.student_id) return null;
+  try {
+    const rows = await db.query('SELECT zalo_user_id FROM sinh_vien WHERE id = ? LIMIT 1', [msg.student_id]);
+    return rows[0]?.zalo_user_id?.trim() || null;
   } catch { return null; }
 }
 

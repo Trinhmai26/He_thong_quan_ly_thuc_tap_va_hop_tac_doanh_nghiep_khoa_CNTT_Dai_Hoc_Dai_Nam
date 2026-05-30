@@ -1,0 +1,259 @@
+@startuml DB_DIAGRAM
+
+!define TABLE(name) entity name << (T, #FFFDE7) >>
+!define PK(x) <b><u>x</u></b>
+!define FK(x) <i>x</i>
+
+skinparam entity {
+  BackgroundColor #FFFDE7
+  BorderColor #E65100
+  FontSize 11
+}
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 50
+
+title
+  <b>Database Diagram</b>
+  He thong Quan ly Thuc tap – Khoa CNTT DH Dai Nam
+end title
+
+' ── NGUOI DUNG ──────────────────────────────
+
+TABLE(accounts) {
+  PK(id) : INT
+  --
+  user_id : VARCHAR(50) UK
+  email : VARCHAR(255) UK
+  password_hash : VARCHAR(255)
+  role : ENUM
+  is_active : BOOLEAN
+}
+
+TABLE(admin) {
+  PK(id) : INT
+  --
+  FK(account_id) : INT
+  full_name : VARCHAR(255)
+  position : VARCHAR(100)
+}
+
+TABLE(sinh_vien) {
+  PK(id) : INT
+  --
+  FK(account_id) : INT
+  ma_sinh_vien : VARCHAR(20) UK
+  ho_ten : VARCHAR(255)
+  lop / khoa / nganh : VARCHAR
+  gpa : DECIMAL(3,2)
+  so_tc_tich_luy : DECIMAL(4,1)
+  trang_thai_phan_cong : VARCHAR(50)
+  cv_path : VARCHAR(255)
+  zalo_user_id : VARCHAR(100)
+}
+
+TABLE(giang_vien) {
+  PK(id) : INT
+  --
+  FK(account_id) : INT
+  ma_giang_vien : VARCHAR(20) UK
+  ho_ten : VARCHAR(255)
+  khoa / bo_mon : VARCHAR
+  hoc_vi : VARCHAR(50)
+  so_sinh_vien_huong_dan : INT
+  zalo_user_id : VARCHAR(100)
+}
+
+TABLE(doanh_nghiep) {
+  PK(id) : INT
+  --
+  FK(account_id) : INT
+  ma_doanh_nghiep : VARCHAR(20) UK
+  ten_cong_ty : VARCHAR(255)
+  linh_vuc_hoat_dong : VARCHAR(255)
+  so_luong_nhan_thuc_tap : INT
+  trang_thai_hop_tac : ENUM
+}
+
+TABLE(doi_mat_khau) {
+  PK(id) : INT
+  --
+  email : VARCHAR(255)
+  reset_code : VARCHAR(6)
+  expiration_time : DATETIME
+  used_flag : TINYINT(1)
+}
+
+' ── DOT & PHAN CONG ──────────────────────────
+
+TABLE(dot_thuc_tap) {
+  PK(id) : INT
+  --
+  ten_dot : VARCHAR(255)
+  thoi_gian_bat_dau : DATE
+  thoi_gian_ket_thuc : DATE
+  trang_thai : ENUM
+}
+
+TABLE(thoi_gian_dang_ky) {
+  PK(id) : INT
+  --
+  title : VARCHAR(255)
+  start_time : DATETIME
+  end_time : DATETIME
+  is_active : TINYINT(1)
+}
+
+TABLE(dang_ky_thuc_tap) {
+  PK(id) : INT
+  --
+  FK(sinh_vien_id) : INT
+  FK(nguoi_duyet_id) : INT
+  nguyen_vong : VARCHAR(100)
+  vi_tri_mong_muon : VARCHAR(255)
+  trang_thai : ENUM
+  workflow_status : ENUM
+  ly_do_tu_choi : TEXT
+}
+
+TABLE(phan_cong_thuc_tap) {
+  PK(id) : INT
+  --
+  FK(sinh_vien_id) : INT
+  FK(giang_vien_id) : INT
+  FK(doanh_nghiep_id) : INT
+  FK(dot_thuc_tap_id) : INT
+  ngay_bat_dau : DATE
+  ngay_ket_thuc : DATE
+  trang_thai : ENUM
+  workflow_status : ENUM
+  diem_so : DECIMAL(3,1)
+}
+
+TABLE(sinh_vien_huong_dan) {
+  PK(id) : INT
+  --
+  ma_giang_vien : VARCHAR(20) FK
+  ma_sinh_vien : VARCHAR(20) FK
+  vi_tri_thuc_tap : VARCHAR(255)
+  doanh_nghiep_thuc_tap : VARCHAR(255)
+}
+
+TABLE(timeline_milestones) {
+  PK(id) : INT
+  --
+  FK(dot_thuc_tap_id) : INT
+  moc_code : ENUM
+  ten_moc : VARCHAR(255)
+  start_at / end_at : DATETIME
+  is_required : TINYINT(1)
+}
+
+' ── BAO CAO ──────────────────────────────────
+
+TABLE(bao_cao) {
+  PK(id) : INT
+  --
+  FK(phan_cong_id) : INT
+  loai_bao_cao : ENUM
+  tuan_so : INT
+  trang_thai : ENUM
+  diem : DECIMAL(4,2)
+  nhan_xet : TEXT
+}
+
+TABLE(bao_cao_da_nop) {
+  PK(id) : VARCHAR(36)
+  --
+  FK(ma_sinh_vien) : VARCHAR(20)
+  FK(dot_thuc_tap_id) : INT
+  tieu_de : VARCHAR(500)
+  file_path : VARCHAR(500)
+  loai_bao_cao : ENUM
+  trang_thai_duyet : ENUM
+}
+
+TABLE(dot_nop_bao_cao) {
+  PK(id) : INT
+  --
+  ma_giang_vien : VARCHAR(20) FK
+  tieu_de : VARCHAR(255)
+  loai_bao_cao : ENUM
+  start_at / end_at : DATETIME
+}
+
+TABLE(bai_nop_sinh_vien) {
+  PK(id) : INT
+  --
+  FK(slot_id) : INT
+  ma_sinh_vien : VARCHAR(20)
+  file_path : VARCHAR(512)
+  trang_thai : ENUM
+}
+
+TABLE(diem_theo_dot) {
+  PK(id) : INT
+  --
+  FK(slot_id) : INT
+  ma_sinh_vien : VARCHAR(20)
+  diem_giang_vien : DECIMAL(4,2)
+  nhan_xet : TEXT
+}
+
+' ── THONG BAO ────────────────────────────────
+
+TABLE(notifications) {
+  PK(id) : INT
+  --
+  FK(receiver_id) : INT
+  FK(student_id) : INT
+  title : VARCHAR(255)
+  type : ENUM
+  is_read : TINYINT(1)
+}
+
+TABLE(zalo_message_queue) {
+  PK(id) : INT
+  --
+  FK(student_id) : INT
+  FK(lecturer_id) : INT
+  phone : VARCHAR(20)
+  message : TEXT
+  status : ENUM
+  retry_count : INT
+  scheduled_at : DATETIME
+}
+
+' ── QUAN HE ──────────────────────────────────
+
+accounts       ||--o{ admin                 : account_id
+accounts       ||--o{ sinh_vien             : account_id
+accounts       ||--o{ giang_vien            : account_id
+accounts       ||--o{ doanh_nghiep          : account_id
+
+sinh_vien      ||--o{ phan_cong_thuc_tap    : sinh_vien_id
+sinh_vien      ||--o{ dang_ky_thuc_tap      : sinh_vien_id
+sinh_vien      ||--o{ sinh_vien_huong_dan   : ma_sinh_vien
+sinh_vien      ||--o{ bao_cao_da_nop        : ma_sinh_vien
+sinh_vien      ||--o{ notifications         : student_id
+sinh_vien      ||--o{ zalo_message_queue    : student_id
+
+giang_vien     ||--o{ phan_cong_thuc_tap    : giang_vien_id
+giang_vien     ||--o{ sinh_vien_huong_dan   : ma_giang_vien
+giang_vien     ||--o{ dot_nop_bao_cao       : ma_giang_vien
+giang_vien     ||--o{ zalo_message_queue    : lecturer_id
+
+doanh_nghiep   ||--o{ phan_cong_thuc_tap    : doanh_nghiep_id
+
+dot_thuc_tap   ||--o{ phan_cong_thuc_tap    : dot_thuc_tap_id
+dot_thuc_tap   ||--o{ timeline_milestones   : dot_thuc_tap_id
+dot_thuc_tap   ||--o{ bao_cao_da_nop        : dot_thuc_tap_id
+
+phan_cong_thuc_tap ||--o{ bao_cao           : phan_cong_id
+
+dot_nop_bao_cao    ||--o{ bai_nop_sinh_vien : slot_id
+dot_nop_bao_cao    ||--o{ diem_theo_dot     : slot_id
+
+accounts       ||--o{ notifications         : receiver_id
+
+@enduml

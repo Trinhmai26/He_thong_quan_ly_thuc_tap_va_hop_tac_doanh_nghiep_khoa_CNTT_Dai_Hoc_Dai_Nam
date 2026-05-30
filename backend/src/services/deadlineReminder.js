@@ -75,10 +75,9 @@ async function _enqueueRemindersForSlot(slot) {
   const students = await db.query(`
     SELECT sv.id, sv.ma_sinh_vien, sv.so_dien_thoai, sv.ho_ten
     FROM sinh_vien sv
-    INNER JOIN giang_vien gv ON gv.ho_ten = sv.giang_vien_huong_dan
+    INNER JOIN giang_vien gv ON LOWER(TRIM(gv.ho_ten)) = LOWER(TRIM(sv.giang_vien_huong_dan))
                              AND gv.ma_giang_vien = ?
-    WHERE sv.so_dien_thoai IS NOT NULL AND TRIM(sv.so_dien_thoai) != ''
-      AND NOT EXISTS (
+    WHERE NOT EXISTS (
         SELECT 1 FROM bai_nop_cua_sinh_vien bnop
         WHERE bnop.slot_id = ? AND bnop.ma_sinh_vien = sv.ma_sinh_vien
       )

@@ -1,0 +1,20 @@
+@startuml SM05
+title SM05 – Trang thai Tai khoan & Doanh nghiep
+
+state "Tai khoan (accounts)" as TK {
+  [*]      --> ACTIVE   : Admin tao tai khoan
+  ACTIVE   --> INACTIVE : Admin vo hieu hoa
+  INACTIVE --> ACTIVE   : Admin kich hoat lai
+  INACTIVE --> [*]      : Admin xoa
+}
+
+state "Doanh nghiep" as DN {
+  [*]         --> DANG_HOP_TAC : Admin duyet / Dang ky
+  DANG_HOP_TAC --> TAM_DUNG   : Admin tam dung
+  TAM_DUNG    --> DANG_HOP_TAC : Admin kich hoat lai
+  DANG_HOP_TAC --> NGUNG      : Ngung hop tac
+  TAM_DUNG    --> NGUNG       : Ngung hop tac
+  NGUNG       --> [*]
+}
+
+@enduml

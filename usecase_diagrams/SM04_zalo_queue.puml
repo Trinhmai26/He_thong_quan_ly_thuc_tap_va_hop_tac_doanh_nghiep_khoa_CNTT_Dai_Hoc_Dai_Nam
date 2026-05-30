@@ -1,0 +1,22 @@
+@startuml SM04
+title SM04 – Trang thai Zalo Message Queue
+
+[*] --> PENDING : Admin/GV them vao hang doi
+
+PENDING    --> PROCESSING : Worker lay de xu ly
+PROCESSING --> SENT       : Gui Zalo thanh cong
+PROCESSING --> PENDING    : That bai, retry_count < 3\n(cho 5 phut)
+PROCESSING --> FAILED     : That bai, retry_count = 3
+PENDING    --> CANCELLED  : SV da nop BC (deadline reminder)\nhoac Admin huy
+
+SENT      --> [*]
+FAILED    --> [*]
+CANCELLED --> [*]
+
+state PENDING    : priority + scheduled_at
+state PROCESSING : dang gui qua Zalo API
+state SENT       : sent_at = NOW()
+state FAILED     : failed_reason luu lai
+state CANCELLED  : khong can gui nua
+
+@enduml

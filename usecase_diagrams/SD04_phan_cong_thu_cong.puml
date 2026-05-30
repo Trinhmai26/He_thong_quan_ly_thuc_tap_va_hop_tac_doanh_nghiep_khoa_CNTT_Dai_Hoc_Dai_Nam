@@ -1,0 +1,22 @@
+@startuml SD04
+title SD04 – Phan cong Thuc tap Thu cong (Admin)
+
+actor "Admin" as A
+participant "Frontend" as FE
+participant "Backend" as BE
+database "Database" as DB
+
+A -> FE : Xem danh sach SV chua phan cong
+FE -> BE : GET /api/sinh-vien?trang_thai=chua-phan-cong
+BE -> DB : Truy van SV + GV + DN
+DB --> BE : Danh sach
+BE --> FE : Hien thi
+
+A -> FE : Chon SV + GV + DN, nhan Phan cong
+FE -> BE : POST /api/assignments\n{ sinh_vien_id, giang_vien_id, doanh_nghiep_id }
+BE -> DB : Tao ban ghi phan cong
+BE -> DB : Cap nhat trang thai SV = da-phan-cong
+BE -> DB : Tang so SV huong dan cua GV
+BE --> FE : 201 Phan cong thanh cong
+FE --> A : Hien thi ket qua
+@enduml

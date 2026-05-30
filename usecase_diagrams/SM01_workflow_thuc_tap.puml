@@ -1,0 +1,43 @@
+@startuml SM01
+title SM01 – Trang thai Workflow Thuc tap
+
+[*] --> CHUA_DANG_KY
+
+CHUA_DANG_KY --> DA_DANG_KY     : SV nop don dang ky
+DA_DANG_KY   --> CHO_DUYET      : He thong tiep nhan
+CHO_DUYET    --> DA_DUYET       : Admin duyet don
+CHO_DUYET    --> TU_CHOI        : Admin tu choi
+TU_CHOI      --> CHO_DUYET      : SV chinh sua va nop lai
+
+DA_DUYET     --> DA_PHAN_CONG   : Admin phan cong GV + DN
+DA_PHAN_CONG --> DANG_THUC_TAP  : Bat dau ngay thuc tap
+
+DANG_THUC_TAP     --> CANH_BAO_TIEN_DO       : GV canh bao cham tien do
+CANH_BAO_TIEN_DO  --> DANG_THUC_TAP          : SV khac phuc
+DANG_THUC_TAP     --> CHO_NOP_BAO_CAO_CUOI_KY : Het thoi gian thuc tap
+
+CHO_NOP_BAO_CAO_CUOI_KY --> CHO_CHAM_DIEM : SV nop bao cao cuoi ky
+CHO_CHAM_DIEM           --> HOAN_THANH    : GV + DN cham diem xong
+
+CHUA_DANG_KY  --> HUY : SV huy
+DA_DANG_KY    --> HUY : SV huy
+CHO_DUYET     --> HUY : Admin huy
+DA_PHAN_CONG  --> HUY : Admin huy phan cong
+
+HOAN_THANH --> [*]
+HUY        --> [*]
+
+state CHUA_DANG_KY       : Chua dang ky
+state DA_DANG_KY         : Da dang ky
+state CHO_DUYET          : Cho duyet
+state DA_DUYET           : Da duyet
+state TU_CHOI            : Tu choi
+state DA_PHAN_CONG       : Da phan cong
+state DANG_THUC_TAP      : Dang thuc tap
+state CANH_BAO_TIEN_DO   : Canh bao tien do
+state CHO_NOP_BAO_CAO_CUOI_KY : Cho nop BC cuoi ky
+state CHO_CHAM_DIEM      : Cho cham diem
+state HOAN_THANH         : Hoan thanh
+state HUY                : Huy
+
+@enduml

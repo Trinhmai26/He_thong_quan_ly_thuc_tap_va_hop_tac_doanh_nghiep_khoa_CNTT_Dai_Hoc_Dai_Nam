@@ -1,0 +1,69 @@
+@startwbs FUNC05
+
+<style>
+wbsDiagram {
+  LineColor #455A64
+  BackgroundColor #FAFAFA
+  .root {
+    BackgroundColor #37474F
+    FontColor white
+    FontStyle bold
+  }
+  .module {
+    BackgroundColor #E65100
+    FontColor white
+    FontStyle bold
+  }
+  .group {
+    BackgroundColor #FBE9E7
+    FontColor #BF360C
+    FontStyle bold
+  }
+  .func {
+    BackgroundColor #FFFDE7
+    FontColor #333
+  }
+}
+</style>
+
+title FUNC05 – Phan ra chuc nang: Tuyen dung & Phong van
+
+* He thong Quan ly Thuc tap <<root>>
+** 5. Tuyen dung & Phong van <<module>>
+*** 5.1. Doanh nghiep Dang ky nhan TTS <<group>>
+**** Tao don dang ky nhan TTS <<func>>
+*** - Chon dot thuc tap <<func>>
+*** - Nhap so luong TTS can nhan <<func>>
+*** - Mo ta yeu cau & dia chi thuc tap <<func>>
+**** Cap nhat don dang ky <<func>>
+**** Huy don dang ky (truoc khi duyet) <<func>>
+**** Xem trang thai don dang ky <<func>>
+*** 5.2. Admin Duyet Dang ky DN <<group>>
+**** Xem danh sach don dang ky cua DN <<func>>
+**** Xem chi tiet don dang ky <<func>>
+**** Duyet don dang ky <<func>>
+*** - Trang thai: cho-duyet → da-duyet <<func>>
+*** - Gui thong bao cho DN <<func>>
+**** Tu choi don dang ky <<func>>
+*** - Nhap ly do tu choi bat buoc <<func>>
+*** - Gui thong bao tu choi cho DN <<func>>
+**** Xem thong ke dang ky theo dot <<func>>
+*** 5.3. Quy trinh Phong van <<group>>
+**** Admin / DN len lich phong van <<func>>
+*** - Chon sinh vien tham gia <<func>>
+*** - Nhap ngay, gio, dia diem <<func>>
+*** - Gui thong bao den SV <<func>>
+**** DN xac nhan lich phong van <<func>>
+**** DN nhap ket qua phong van <<func>>
+*** - Dat: chuyen sang trang thai "dat" <<func>>
+*** - Khong dat: chuyen sang "khong-dat" <<func>>
+*** - Gui thong bao ket qua cho SV <<func>>
+*** 5.4. Sinh vien Ung tuyen <<group>>
+**** Xem vi tri thuc tap dang tuyen <<func>>
+**** Nop don ung tuyen <<func>>
+**** Xem ds don da nop <<func>>
+**** Xem trang thai phong van <<func>>
+*** - cho-duyet / da-duyet / cho-phong-van / da-phong-van <<func>>
+**** Xem ket qua phong van <<func>>
+
+@endwbs

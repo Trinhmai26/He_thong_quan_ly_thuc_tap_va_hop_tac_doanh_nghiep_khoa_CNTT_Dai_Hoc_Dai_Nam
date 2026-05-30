@@ -1,0 +1,89 @@
+@startuml UC03
+
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam linetype polyline
+skinparam nodesep 55
+skinparam ranksep 70
+skinparam usecase {
+  BackgroundColor #FFFDE7
+  BorderColor #E65100
+  FontSize 11
+}
+skinparam actor {
+  BackgroundColor #FAFAFA
+  BorderColor #1A237E
+  FontStyle bold
+  FontSize 12
+}
+skinparam rectangle {
+  BackgroundColor #F5F7FA
+  BorderColor #455A64
+  BorderThickness 2
+  FontStyle bold
+}
+
+title
+  <b>UC03 – Dot Thuc tap & Phan cong</b>
+  He thong Quan ly Thuc tap – Khoa CNTT DH Dai Nam
+end title
+
+actor "Admin"        as Admin #FFD0A0
+actor "Giang vien"   as GV    #BBDEFB
+actor "Sinh vien"    as SV    #C8E6C9
+actor "Doanh nghiep" as DN    #FFF9C4
+
+Admin -[hidden]down-> GV
+GV    -[hidden]down-> SV
+SV    -[hidden]down-> DN
+
+rectangle "Dot Thuc tap & Phan cong" {
+
+  package "Quan ly Dot TT [Admin]" as P1 {
+    (Tao / Cap nhat / Xoa dot TT)  as UC01
+    (Mo / Dong / Gia han dang ky)  as UC02
+    (Import ds tham gia / Xuat Excel) as UC03
+  }
+
+  package "Phan cong Thuc tap [Admin]" as P2 {
+    (Phan cong thu cong SV-GV-DN)  as UC04
+    (Chay phan cong tu dong)       as UC05
+    (Xem preview & Xac nhan)       as UC06
+    (Phan cong GV tu dong)         as UC07
+    (Huy phan cong)                as UC08
+  }
+
+  package "Theo doi & Xem Dot [GV + SV + DN]" as P3 {
+    (Xem danh sach dot TT)         as UC09
+    (Xem chi tiet dot TT)          as UC10
+    (Theo doi trang thai phan cong) as UC11
+  }
+}
+
+Admin --> UC01
+Admin --> UC02
+Admin --> UC03
+Admin --> UC04
+Admin --> UC05
+Admin --> UC06
+Admin --> UC07
+Admin --> UC08
+Admin --> UC09
+
+GV  --> UC09
+GV  --> UC10
+GV  --> UC11
+
+SV  --> UC09
+SV  --> UC10
+SV  --> UC11
+
+DN  --> UC09
+DN  --> UC10
+DN  --> UC11
+
+UC05 ..> UC06 : <<include>>
+UC07 ..> UC04 : <<extend>>
+
+@enduml

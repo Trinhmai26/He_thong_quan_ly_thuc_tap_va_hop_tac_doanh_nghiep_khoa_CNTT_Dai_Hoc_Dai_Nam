@@ -1,0 +1,19 @@
+@startuml SD10
+title SD10 – Phan tich CV khop vi tri TT (AI)
+
+actor "Sinh vien" as SV
+participant "Frontend" as FE
+participant "Backend" as BE
+participant "Python Analyzer" as PY
+database "Database" as DB
+
+SV -> FE : Nhap vi tri muon ung tuyen
+FE -> BE : POST /api/sinh-vien/analyze-cv\n{ jobPositions: [...] }
+BE -> DB : Lay duong dan CV cua SV
+DB --> BE : cv_path
+BE -> PY : Phan tich CV voi danh sach vi tri
+PY -> PY : Trich xuat noi dung PDF\nSo sanh ky nang voi yeu cau vi tri\nTinh diem khop (0 - 100%)
+PY --> BE : { job_matches: [ { vi_tri, diem, ky_nang_phu_hop, ky_nang_thieu } ] }
+BE --> FE : 200 Ket qua phan tich
+FE --> SV : Hien thi diem khop % va goi y ky nang
+@enduml

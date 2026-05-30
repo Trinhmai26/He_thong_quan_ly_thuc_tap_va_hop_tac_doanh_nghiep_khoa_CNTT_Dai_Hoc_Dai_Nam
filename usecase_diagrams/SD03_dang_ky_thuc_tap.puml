@@ -1,0 +1,25 @@
+@startuml SD03
+title SD03 – Dang ky Thuc tap (Sinh vien)
+
+actor "Sinh vien" as SV
+participant "Frontend" as FE
+participant "Backend" as BE
+participant "Python CV" as PY
+database "Database" as DB
+
+SV -> FE : Xem dot thuc tap dang mo
+FE -> BE : GET /api/registration-periods/check
+BE --> FE : Thoi han dang ky hop le
+
+SV -> FE : Upload file CV (PDF)
+FE -> BE : POST /api/sinh-vien/upload-cv
+BE -> PY : Xac thuc quyen so huu CV\n(kiem tra ten/ma SV trong file)
+PY --> BE : CV hop le
+BE -> DB : Luu duong dan CV
+
+SV -> FE : Dien nguyen vong & vi tri mong muon
+FE -> BE : POST /api/sinh-vien/register-internship
+BE -> DB : Kiem tra dieu kien tin chi\nva tao don dang ky (cho-duyet)
+BE --> FE : 201 Dang ky thanh cong
+FE --> SV : Hien thi trang thai "Cho duyet"
+@enduml

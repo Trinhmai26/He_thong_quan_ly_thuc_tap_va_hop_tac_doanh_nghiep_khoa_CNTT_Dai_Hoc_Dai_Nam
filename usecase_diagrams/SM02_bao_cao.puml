@@ -1,0 +1,21 @@
+@startuml SM02
+title SM02 – Trang thai Bao cao Thuc tap
+
+state "Bao cao Hang tuan" as BC_TUAN {
+  [*]        --> CHUA_NOP
+  CHUA_NOP   --> DA_NOP    : SV nop bao cao
+  DA_NOP     --> DA_DUYET  : GV cham diem & nhan xet
+  DA_NOP     --> TU_CHOI   : GV yeu cau lam lai
+  TU_CHOI    --> DA_NOP    : SV nop lai
+  DA_DUYET   --> [*]
+}
+
+state "Bao cao Cuoi ky" as BC_CUOI_KY {
+  [*]       --> CHO_DUYET
+  CHO_DUYET --> DA_DUYET  : GV + DN cham diem
+  CHO_DUYET --> TU_CHOI2  : Admin tu choi
+  TU_CHOI2  --> CHO_DUYET : SV nop lai
+  DA_DUYET  --> [*]
+}
+
+@enduml

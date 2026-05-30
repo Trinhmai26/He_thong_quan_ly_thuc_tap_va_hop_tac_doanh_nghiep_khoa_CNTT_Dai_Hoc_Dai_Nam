@@ -1,0 +1,70 @@
+@startwbs FUNC07
+
+<style>
+wbsDiagram {
+  LineColor #455A64
+  BackgroundColor #FAFAFA
+  .root {
+    BackgroundColor #37474F
+    FontColor white
+    FontStyle bold
+  }
+  .module {
+    BackgroundColor #6A1B9A
+    FontColor white
+    FontStyle bold
+  }
+  .group {
+    BackgroundColor #F3E5F5
+    FontColor #4A148C
+    FontStyle bold
+  }
+  .func {
+    BackgroundColor #FFFDE7
+    FontColor #333
+  }
+}
+</style>
+
+title FUNC07 – Phan ra chuc nang: Cham diem & Danh gia
+
+* He thong Quan ly Thuc tap <<root>>
+** 7. Cham diem & Danh gia <<module>>
+*** 7.1. GV Cham diem BC Tuan <<group>>
+**** Xem ds bao cao tuan can cham <<func>>
+*** - Loc theo SV, tuan, trang thai <<func>>
+**** Xem chi tiet noi dung bao cao <<func>>
+*** - Xem file dinh kem (neu co) <<func>>
+**** Nhap diem so (thang diem 0–10) <<func>>
+**** Nhap nhan xet / phan hoi chi tiet <<func>>
+**** Luu diem & nhan xet <<func>>
+*** - Cap nhat trang thai BC: da-cham-diem <<func>>
+*** - Gui thong bao den SV <<func>>
+**** Xem lich su da cham diem <<func>>
+*** 7.2. GV Cham diem BC Cuoi ky <<group>>
+**** Xem bao cao cuoi ky cua SV <<func>>
+*** - Xem file bao cao (PDF/Word) <<func>>
+**** Nhap diem cuoi ky (GV) <<func>>
+**** Nhap nhan xet cuoi ky (GV) <<func>>
+**** Nop bao cao huong dan (GV) <<func>>
+*** - Trang thai: chua-nop → da-nop <<func>>
+*** - Gui thong bao Admin <<func>>
+*** 7.3. DN Danh gia Thuc tap sinh <<group>>
+**** Xem bao cao cuoi ky cua TTS <<func>>
+**** Nhap diem danh gia (DN) <<func>>
+**** Nhap nhan xet thai do & ky nang <<func>>
+**** Nop bao cao danh gia (DN) <<func>>
+*** - Trang thai: chua-nop → da-nop <<func>>
+*** - Gui thong bao Admin <<func>>
+*** 7.4. Admin Quan ly Ket qua <<group>>
+**** Xem tat ca ket qua cham diem <<func>>
+**** Duyet bao cao GV / DN <<func>>
+*** - Trang thai: da-nop → da-duyet <<func>>
+**** Tu choi bao cao GV / DN <<func>>
+*** - Nhap ly do tu choi <<func>>
+*** - Gui thong bao lai cho GV / DN <<func>>
+**** Xuat ket qua cham diem ra Excel <<func>>
+**** Xem thong ke phan phoi diem <<func>>
+*** - Diem trung binh, cao nhat, thap nhat <<func>>
+
+@endwbs

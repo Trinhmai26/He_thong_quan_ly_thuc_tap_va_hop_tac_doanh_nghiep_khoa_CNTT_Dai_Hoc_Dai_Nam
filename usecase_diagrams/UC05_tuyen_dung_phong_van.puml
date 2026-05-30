@@ -1,0 +1,90 @@
+@startuml UC05
+
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam linetype polyline
+skinparam nodesep 55
+skinparam ranksep 70
+skinparam usecase {
+  BackgroundColor #FFFDE7
+  BorderColor #E65100
+  FontSize 11
+}
+skinparam actor {
+  BackgroundColor #FAFAFA
+  BorderColor #1A237E
+  FontStyle bold
+  FontSize 12
+}
+skinparam rectangle {
+  BackgroundColor #F5F7FA
+  BorderColor #455A64
+  BorderThickness 2
+  FontStyle bold
+}
+
+title
+  <b>UC05 – Tuyen dung & Phong van</b>
+  He thong Quan ly Thuc tap – Khoa CNTT DH Dai Nam
+end title
+
+actor "Admin"        as Admin #FFD0A0
+actor "Giang vien"   as GV    #BBDEFB
+actor "Sinh vien"    as SV    #C8E6C9
+actor "Doanh nghiep" as DN    #FFF9C4
+
+Admin -[hidden]down-> GV
+GV    -[hidden]down-> SV
+SV    -[hidden]down-> DN
+
+rectangle "Tuyen dung & Phong van" {
+
+  package "Duyet Dang ky DN [Admin]" as P1 {
+    (Xem ds dang ky cua DN)        as UC01
+    (Duyet / Tu choi dang ky DN)   as UC02
+    (Len lich phong van)           as UC03
+    (Thong ke dang ky theo dot)    as UC04
+  }
+
+  package "Theo doi Phong van [GV]" as P2 {
+    (Xem ket qua phong van SV HD)  as UC05
+    (Theo doi SV sau phong van)    as UC06
+  }
+
+  package "Ung tuyen [Sinh vien]" as P3 {
+    (Xem vi tri TT dang tuyen)     as UC07
+    (Nop don ung tuyen)            as UC08
+    (Xem trang thai & ket qua PV)  as UC09
+  }
+
+  package "Quan ly Phong van [DN]" as P4 {
+    (Dang ky nhan thuc tap sinh)   as UC10
+    (Xac nhan lich phong van)      as UC11
+    (Nhap ket qua phong van)       as UC12
+    (Xem ds SV ung tuyen)          as UC13
+  }
+}
+
+Admin --> UC01
+Admin --> UC02
+Admin --> UC03
+Admin --> UC04
+
+GV --> UC05
+GV --> UC06
+
+SV --> UC07
+SV --> UC08
+SV --> UC09
+
+DN --> UC10
+DN --> UC11
+DN --> UC12
+DN --> UC13
+
+UC02 ..> UC01 : <<include>>
+UC11 ..> UC03 : <<include>>
+UC12 ..> UC11 : <<include>>
+
+@enduml

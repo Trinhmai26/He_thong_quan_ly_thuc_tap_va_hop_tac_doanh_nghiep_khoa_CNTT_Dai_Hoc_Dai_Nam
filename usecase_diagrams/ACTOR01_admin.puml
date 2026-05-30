@@ -1,0 +1,184 @@
+@startuml ACTOR01_Admin
+
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam nodesep 40
+skinparam ranksep 55
+skinparam usecase {
+  BackgroundColor #FFF8E1
+  BorderColor #E65100
+}
+skinparam actor {
+  BackgroundColor #FFD0A0
+  BorderColor #BF360C
+  FontStyle bold
+  FontSize 13
+}
+skinparam rectangle {
+  BackgroundColor #FFF3E0
+  BorderColor #E65100
+  BorderThickness 2
+}
+
+title
+  <b>Quan tri vien (Admin) – Toan bo chuc nang</b>
+  He thong Quan ly Thuc tap - Khoa CNTT DH Dai Nam
+end title
+
+actor "Quan tri vien\n(Admin)" as Admin #FFD0A0
+
+rectangle "Chuc nang cua Quan tri vien" {
+
+  package "1. Xac thuc & Tai khoan" as P1 {
+    (Dang nhap he thong)              as UC101
+    (Doi mat khau)                    as UC102
+    (Quan ly tai khoan nguoi dung)    as UC103
+    (Tao tai khoan moi)               as UC104
+    (Kich hoat / Vo hieu hoa TK)      as UC105
+  }
+
+  package "2. Quan ly Sinh vien" as P2 {
+    (Xem / Tim kiem sinh vien)        as UC201
+    (Them sinh vien moi)              as UC202
+    (Cap nhat thong tin SV)           as UC203
+    (Xoa sinh vien)                   as UC204
+    (Import danh sach SV tu Excel)    as UC205
+    (Xuat danh sach SV ra Excel)      as UC206
+    (Phan cong giang vien cho SV)     as UC207
+  }
+
+  package "3. Quan ly Giang vien" as P3 {
+    (Xem / Tim kiem giang vien)       as UC301
+    (Them giang vien moi)             as UC302
+    (Cap nhat thong tin GV)           as UC303
+    (Xoa giang vien)                  as UC304
+    (Import danh sach GV tu Excel)    as UC305
+    (Xuat danh sach GV ra Excel)      as UC306
+    (Phan cong GV tu dong)            as UC307
+  }
+
+  package "4. Quan ly Doanh nghiep" as P4 {
+    (Xem / Tim kiem doanh nghiep)     as UC401
+    (Cap nhat thong tin DN)           as UC402
+    (Xoa doanh nghiep)               as UC403
+    (Duyet dang ky doanh nghiep)      as UC404
+    (Tu choi dang ky DN)             as UC405
+    (Import / Xuat danh sach DN)      as UC406
+  }
+
+  package "5. Quan ly Dot Thuc tap" as P5 {
+    (Tao dot thuc tap moi)            as UC501
+    (Cap nhat thong tin dot)          as UC502
+    (Mo / Dong thoi han dang ky)      as UC503
+    (Gia han thoi han dang ky)        as UC504
+    (Import ds tham gia dot)          as UC505
+    (Xem / Xuat du lieu dot)          as UC506
+  }
+
+  package "6. Phan cong Thuc tap" as P6 {
+    (Phan cong thu cong SV-GV-DN)     as UC601
+    (Chay phan cong tu dong)          as UC602
+    (Xem ket qua preview phan cong)   as UC603
+    (Xac nhan phan cong)              as UC604
+    (Huy phan cong)                   as UC605
+  }
+
+  package "7. Xu ly Don Dang ky" as P7 {
+    (Xem danh sach don dang ky)       as UC701
+    (Duyet don dang ky SV)            as UC702
+    (Tu choi don dang ky SV)          as UC703
+  }
+
+  package "8. Tuyen dung & Phong van" as P8 {
+    (Xem danh sach dang ky DN)        as UC801
+    (Duyet / Tu choi dang ky DN)      as UC802
+    (Len lich phong van)              as UC803
+    (Theo doi ket qua phong van)      as UC804
+  }
+
+  package "9. Giam sat Bao cao" as P9 {
+    (Xem tat ca bao cao tuan / CK)    as UC901
+    (Xem thong ke ti le nop)          as UC902
+    (Duyet / Tu choi bao cao GV-DN)   as UC903
+    (Xuat ket qua cham diem Excel)    as UC904
+  }
+
+  package "10. Dashboard & Thong ke" as P10 {
+    (Xem tong quan he thong)          as UC1001
+    (Thong ke phan cong & bao cao)    as UC1002
+    (Xem SV theo dot thuc tap)        as UC1003
+    (Xuat bao cao tong hop Excel)     as UC1004
+  }
+
+  package "11. Thong bao" as P11 {
+    (Gui thong bao in-app)            as UC1101
+    (Gui Email hang loat)             as UC1102
+    (Gui tin nhan Zalo nhom / ca nhan) as UC1103
+  }
+}
+
+Admin --> UC101
+Admin --> UC102
+Admin --> UC103
+Admin --> UC104
+Admin --> UC105
+Admin --> UC201
+Admin --> UC202
+Admin --> UC203
+Admin --> UC204
+Admin --> UC205
+Admin --> UC206
+Admin --> UC207
+Admin --> UC301
+Admin --> UC302
+Admin --> UC303
+Admin --> UC304
+Admin --> UC305
+Admin --> UC306
+Admin --> UC307
+Admin --> UC401
+Admin --> UC402
+Admin --> UC403
+Admin --> UC404
+Admin --> UC405
+Admin --> UC406
+Admin --> UC501
+Admin --> UC502
+Admin --> UC503
+Admin --> UC504
+Admin --> UC505
+Admin --> UC506
+Admin --> UC601
+Admin --> UC602
+Admin --> UC603
+Admin --> UC604
+Admin --> UC605
+Admin --> UC701
+Admin --> UC702
+Admin --> UC703
+Admin --> UC801
+Admin --> UC802
+Admin --> UC803
+Admin --> UC804
+Admin --> UC901
+Admin --> UC902
+Admin --> UC903
+Admin --> UC904
+Admin --> UC1001
+Admin --> UC1002
+Admin --> UC1003
+Admin --> UC1004
+Admin --> UC1101
+Admin --> UC1102
+Admin --> UC1103
+
+UC602 ..> UC603 : <<include>>
+UC603 ..> UC604 : <<include>>
+UC702 ..> UC701 : <<include>>
+UC703 ..> UC701 : <<include>>
+UC802 ..> UC801 : <<include>>
+UC903 ..> UC901 : <<include>>
+UC1004 ..> UC1003 : <<include>>
+
+@enduml

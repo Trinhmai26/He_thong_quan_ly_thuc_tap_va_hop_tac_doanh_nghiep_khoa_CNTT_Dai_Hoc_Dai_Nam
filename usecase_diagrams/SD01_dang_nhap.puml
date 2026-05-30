@@ -1,0 +1,21 @@
+@startuml SD01
+title SD01 – Dang nhap he thong
+
+actor "Nguoi dung" as U
+participant "Frontend" as FE
+participant "Backend" as BE
+database "Database" as DB
+
+U -> FE : Nhap user_id & password
+FE -> BE : POST /api/auth/login
+BE -> DB : Truy van tai khoan
+DB --> BE : Tra ve thong tin
+
+alt Sai thong tin
+  BE --> FE : 401 Loi xac thuc
+else Thanh cong
+  BE -> BE : Tao JWT token
+  BE --> FE : 200 + token + thong tin user
+  FE --> U : Chuyen den Dashboard
+end
+@enduml

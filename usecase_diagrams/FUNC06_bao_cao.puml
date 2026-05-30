@@ -1,0 +1,62 @@
+@startwbs FUNC06
+
+<style>
+wbsDiagram {
+  LineColor #455A64
+  BackgroundColor #FAFAFA
+  .root {
+    BackgroundColor #37474F
+    FontColor white
+    FontStyle bold
+  }
+  .module {
+    BackgroundColor #1565C0
+    FontColor white
+    FontStyle bold
+  }
+  .group {
+    BackgroundColor #E3F2FD
+    FontColor #0D47A1
+    FontStyle bold
+  }
+  .func {
+    BackgroundColor #FFFDE7
+    FontColor #333
+  }
+}
+</style>
+
+title FUNC06 – Phan ra chuc nang: Bao cao Thuc tap
+
+* He thong Quan ly Thuc tap <<root>>
+** 6. Quan ly Bao cao Thuc tap <<module>>
+*** 6.1. Sinh vien Nop BC Tuan <<group>>
+**** Xem lich su bao cao tuan da nop <<func>>
+**** Nop bao cao tuan moi <<func>>
+*** - Chon tuan bao cao (1, 2, 3...) <<func>>
+*** - Nhap noi dung bao cao (van ban) <<func>>
+*** - Dinh kem file PDF/Word/Excel toi da 10MB <<func>>
+*** - Xac nhan & gui bao cao <<func>>
+**** Cap nhat bao cao tuan (truoc khi cham) <<func>>
+**** Xem chi tiet bao cao da nop <<func>>
+**** Xem diem & nhan xet cua GV <<func>>
+*** 6.2. Sinh vien Nop BC Cuoi ky <<group>>
+**** Xem bao cao cuoi ky hien tai <<func>>
+**** Nop bao cao cuoi ky <<func>>
+*** - Nhap tieu de bao cao <<func>>
+*** - Nhap tom tat (abstract) <<func>>
+*** - Upload file bao cao (PDF/Word) <<func>>
+*** - Xac nhan & gui bao cao <<func>>
+**** Cap nhat bao cao cuoi ky <<func>>
+**** Xem diem GV & danh gia DN <<func>>
+*** 6.3. Admin Giam sat Bao cao <<group>>
+**** Xem tat ca bao cao tuan <<func>>
+*** - Loc theo SV, tuan, trang thai <<func>>
+**** Xem tat ca bao cao cuoi ky <<func>>
+*** - Loc theo SV, trang thai <<func>>
+**** Xem thong ke ti le nop bao cao <<func>>
+*** - Ti le nop dung han <<func>>
+*** - So luong bao cao chua cham <<func>>
+**** Xem ds SV chua nop bao cao <<func>>
+
+@endwbs

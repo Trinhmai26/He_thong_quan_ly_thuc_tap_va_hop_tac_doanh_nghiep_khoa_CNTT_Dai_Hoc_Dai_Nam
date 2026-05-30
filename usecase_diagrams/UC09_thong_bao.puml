@@ -1,0 +1,110 @@
+@startuml UC09
+
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam linetype polyline
+skinparam nodesep 55
+skinparam ranksep 70
+skinparam usecase {
+  BackgroundColor #FFFDE7
+  BorderColor #E65100
+  FontSize 11
+}
+skinparam actor {
+  BackgroundColor #FAFAFA
+  BorderColor #1A237E
+  FontStyle bold
+  FontSize 12
+}
+skinparam rectangle {
+  BackgroundColor #F5F7FA
+  BorderColor #455A64
+  BorderThickness 2
+  FontStyle bold
+}
+
+title
+  <b>UC09 – Thong bao & Nhac nho</b>
+  He thong Quan ly Thuc tap – Khoa CNTT DH Dai Nam
+end title
+
+actor "Nguoi su dung"  as User  #E8EAF6
+actor "Admin"          as Admin #FFD0A0
+actor "Giang vien"     as GV    #BBDEFB
+actor "Sinh vien"      as SV    #C8E6C9
+actor "Doanh nghiep"   as DN    #FFF9C4
+
+Admin -|> User
+GV    -|> User
+SV    -|> User
+DN    -|> User
+
+Admin -[hidden]down-> GV
+GV    -[hidden]down-> SV
+SV    -[hidden]down-> DN
+
+rectangle "Thong bao & Nhac nho" {
+
+  package "Nhan & Quan ly TB [Tat ca]" as P0 {
+    (Xem danh sach thong bao)      as UC00
+    (Danh dau da doc / Xoa TB)     as UC01
+  }
+
+  package "Gui Thong bao [Admin]" as P1 {
+    (Gui TB in-app toi nguoi dung) as UC02
+    (Gui Email hang loat)          as UC03
+    (Gui Zalo ca nhan / hang loat) as UC04
+    (Gui TB den SV theo dot TT)    as UC05
+  }
+
+  package "Gui TB [Giang vien]" as P2 {
+    (Gui TB den SV cua minh)       as UC06
+    (Gui Zalo cho SV)              as UC07
+  }
+
+  package "TB Nhan [SV]" as P3 {
+    (Nhan TB ket qua phan cong)    as UC08
+    (Nhan TB diem & nhan xet)      as UC09
+    (Nhan nhac nho deadline BC)    as UC10
+    (Nhan TB trang thai don DK)    as UC11
+  }
+
+  package "TB Nhan [DN]" as P4 {
+    (Nhan TB duyet dang ky)        as UC12
+    (Nhan TB ket qua phong van)    as UC13
+    (Nhan TB phan cong TTS)        as UC14
+  }
+}
+
+' Chung
+User  --> UC00
+User  --> UC01
+
+' Admin gui
+Admin --> UC02
+Admin --> UC03
+Admin --> UC04
+Admin --> UC05
+
+' GV gui
+GV --> UC06
+GV --> UC07
+
+' SV nhan
+SV --> UC08
+SV --> UC09
+SV --> UC10
+SV --> UC11
+
+' DN nhan
+DN --> UC12
+DN --> UC13
+DN --> UC14
+
+UC04 ..> UC02 : <<extend>>
+UC07 ..> UC06 : <<extend>>
+UC08 ..> UC00 : <<extend>>
+UC12 ..> UC00 : <<extend>>
+
+@enduml

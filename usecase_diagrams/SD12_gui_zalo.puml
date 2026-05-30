@@ -1,0 +1,32 @@
+@startuml SD12
+title SD12 – Gui thong bao Zalo
+
+actor "Admin" as Admin
+actor "Giang vien" as GV
+participant "Backend" as BE
+database "Database" as DB
+participant "Zalo API" as ZAPI
+
+== Admin gui toi SV / GV ==
+Admin -> BE : POST /api/zalo/send-to-students\n{ studentIds, message }
+BE -> DB : Them tin nhan vao hang doi
+BE --> Admin : 202 Dang xu ly
+
+== GV gui toi SV cua minh ==
+GV -> BE : POST /api/zalo/send-to-my-students\n{ studentIds, message }
+BE -> DB : Chi them SV thuoc GV nay vao hang doi
+BE --> GV : 202 Dang xu ly
+
+== He thong xu ly hang doi (Cron moi 1 phut) ==
+BE -> DB : Lay 3 tin nhan pending
+DB --> BE : Danh sach tin nhan
+BE -> ZAPI : Gui tin nhan theo so dien thoai
+ZAPI --> BE : Ket qua
+
+alt Thanh cong
+  BE -> DB : status = sent
+else That bai (duoi 3 lan thu)
+  BE -> DB : retry_count + 1, cho 5 phut roi gui lai
+end
+
+@enduml

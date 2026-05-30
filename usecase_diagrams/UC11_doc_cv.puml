@@ -1,0 +1,112 @@
+@startuml UC11
+
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam linetype polyline
+skinparam nodesep 55
+skinparam ranksep 70
+skinparam usecase {
+  BackgroundColor #FFFDE7
+  BorderColor #E65100
+  FontSize 11
+}
+skinparam actor {
+  BackgroundColor #FAFAFA
+  BorderColor #1A237E
+  FontStyle bold
+  FontSize 12
+}
+skinparam rectangle {
+  BackgroundColor #F5F7FA
+  BorderColor #455A64
+  BorderThickness 2
+  FontStyle bold
+}
+
+title
+  <b>UC11 – Doc & Phan tich CV Sinh vien</b>
+  He thong Quan ly Thuc tap – Khoa CNTT DH Dai Nam
+end title
+
+actor "Admin"          as Admin  #FFD0A0
+actor "Giang vien"     as GV     #BBDEFB
+actor "Sinh vien"      as SV     #C8E6C9
+actor "Dich vu Python" as PY     #F3E5F5
+
+Admin -[hidden]down-> GV
+GV    -[hidden]down-> SV
+SV    -[hidden]down-> PY
+
+rectangle "Doc & Phan tich CV" {
+
+  package "Quan ly CV toan he thong [Admin]" as P1 {
+    (Xem CV da nop cua sinh vien)         as UC01
+    (Kiem tra trang thai nop CV)          as UC02
+    (Xem thong ke SV da / chua nop CV)    as UC03
+  }
+
+  package "Xem CV SV [Giang vien]" as P2 {
+    (Xem CV cua SV duoc phan cong)        as UC04
+    (Tai file CV de xem)                  as UC05
+  }
+
+  package "Quan ly CV Ca nhan [Sinh vien]" as P3 {
+    (Upload CV - PDF toi da 5MB)          as UC06
+    (Xem CV hien tai da nop)             as UC07
+    (Phan tich CV khop voi vi tri TT)     as UC08
+    (Xoa CV)                              as UC09
+  }
+
+  package "Xac thuc Quyen so huu CV [He thong]" as P4 {
+    (Trich xuat van ban tu file PDF)      as UC10
+    (Kiem tra ten SV trong CV)           as UC11
+    (Kiem tra ma SV trong CV)            as UC12
+    (Kiem tra email SV trong CV)         as UC13
+    (So sanh ten mo - fuzzy toi thieu 80%) as UC14
+    (Chap nhan / Tu choi CV)             as UC15
+  }
+
+  package "Phan tich Noi dung CV [Dich vu Python]" as P5 {
+    (Trich xuat cac muc CV)              as UC16
+    (Trich xuat ky nang / kinh nghiem)   as UC17
+    (Tinh diem khop voi vi tri tuyen)    as UC18
+    (Tra ve ket qua phan tich JSON)      as UC19
+  }
+}
+
+Admin --> UC01
+Admin --> UC02
+Admin --> UC03
+
+GV --> UC04
+GV --> UC05
+
+SV --> UC06
+SV --> UC07
+SV --> UC08
+SV --> UC09
+
+PY --> UC10
+PY --> UC11
+PY --> UC12
+PY --> UC13
+PY --> UC14
+PY --> UC15
+PY --> UC16
+PY --> UC17
+PY --> UC18
+PY --> UC19
+
+UC06 ..> UC10 : <<include>>
+UC10 ..> UC11 : <<include>>
+UC10 ..> UC12 : <<include>>
+UC10 ..> UC13 : <<include>>
+UC11 ..> UC14 : <<extend>>
+UC14 ..> UC15 : <<include>>
+UC08 ..> UC16 : <<include>>
+UC16 ..> UC17 : <<include>>
+UC17 ..> UC18 : <<include>>
+UC18 ..> UC19 : <<include>>
+
+@enduml

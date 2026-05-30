@@ -1,0 +1,21 @@
+@startuml SD07
+title SD07 – Cham diem Bao cao Tuan (Giang vien)
+
+actor "Giang vien" as GV
+participant "Frontend" as FE
+participant "Backend" as BE
+database "Database" as DB
+
+GV -> FE : Xem danh sach bao cao tuan can cham
+FE -> BE : GET /api/reports/weekly?trang_thai=da-nop
+BE -> DB : Lay BC cua SV duoc phan cong
+DB --> BE : Danh sach
+BE --> FE : Hien thi danh sach + noi dung
+
+GV -> FE : Nhap diem (0-10) va nhan xet
+FE -> BE : POST /api/reports/weekly/:id/grade\n{ diem, nhan_xet }
+BE -> DB : Cap nhat diem & nhan xet\ntrang_thai = da-duyet
+BE -> BE : Thong bao SV ve diem so
+BE --> FE : 200 Thanh cong
+FE --> GV : "Da luu diem va nhan xet"
+@enduml

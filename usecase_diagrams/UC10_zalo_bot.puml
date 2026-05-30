@@ -1,0 +1,88 @@
+@startuml UC10
+
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam linetype polyline
+skinparam nodesep 55
+skinparam ranksep 70
+skinparam usecase {
+  BackgroundColor #FFFDE7
+  BorderColor #E65100
+  FontSize 11
+}
+skinparam actor {
+  BackgroundColor #FAFAFA
+  BorderColor #1A237E
+  FontStyle bold
+  FontSize 12
+}
+skinparam rectangle {
+  BackgroundColor #F5F7FA
+  BorderColor #455A64
+  BorderThickness 2
+  FontStyle bold
+}
+
+title
+  <b>UC10 – Zalo Bot: Gui thong bao</b>
+  He thong Quan ly Thuc tap – Khoa CNTT DH Dai Nam
+end title
+
+actor "Admin"       as Admin  #FFD0A0
+actor "Giang vien"  as GV     #BBDEFB
+actor "Sinh vien"   as SV     #C8E6C9
+
+Admin -[hidden]down-> GV
+GV    -[hidden]down-> SV
+
+rectangle "Zalo Bot – Gui thong bao" {
+
+  package "Admin gui toi GV & SV" as P1 {
+    (Gui Zalo toi giang vien)             as UC01
+    (Gui Zalo toi sinh vien ca nhan)      as UC02
+    (Gui Zalo hang loat toi nhieu SV)     as UC03
+    (Gui Zalo toi SV theo dot thuc tap)   as UC04
+    (Gui tin nhan toi nhom Zalo)          as UC05
+    (Xem trang thai lien ket Zalo SV/GV) as UC06
+    (Xem hang doi & ket qua gui)         as UC07
+  }
+
+  package "GV gui toi SV cua minh" as P2 {
+    (Gui Zalo toi SV duoc phan cong)     as UC08
+    (Xem ket qua hang doi gui)           as UC09
+  }
+
+  package "SV lien ket & nhan TB" as P3 {
+    (Theo doi OA Zalo cua khoa)          as UC10
+    (Gui ma sinh vien de lien ket)       as UC11
+    (Nhan xac nhan lien ket thanh cong)  as UC12
+    (Nhan thong bao tu Admin / GV)       as UC13
+    (Huy lien ket khi bo theo doi OA)    as UC14
+  }
+}
+
+Admin --> UC01
+Admin --> UC02
+Admin --> UC03
+Admin --> UC04
+Admin --> UC05
+Admin --> UC06
+Admin --> UC07
+
+GV --> UC08
+GV --> UC09
+
+SV --> UC10
+SV --> UC11
+SV --> UC13
+SV --> UC14
+
+UC10 ..> UC11 : <<include>>
+UC11 ..> UC12 : <<include>>
+UC03 ..> UC02 : <<extend>>
+UC04 ..> UC03 : <<extend>>
+UC08 ..> UC02 : <<extend>>
+UC13 ..> UC12 : <<extend>>
+
+@enduml

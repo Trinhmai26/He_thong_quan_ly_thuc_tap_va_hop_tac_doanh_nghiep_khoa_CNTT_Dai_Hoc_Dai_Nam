@@ -1,0 +1,71 @@
+@startwbs FUNC04
+
+<style>
+wbsDiagram {
+  LineColor #455A64
+  BackgroundColor #FAFAFA
+  .root {
+    BackgroundColor #37474F
+    FontColor white
+    FontStyle bold
+  }
+  .module {
+    BackgroundColor #00695C
+    FontColor white
+    FontStyle bold
+  }
+  .group {
+    BackgroundColor #E0F2F1
+    FontColor #004D40
+    FontStyle bold
+  }
+  .func {
+    BackgroundColor #FFFDE7
+    FontColor #333
+  }
+}
+</style>
+
+title FUNC04 – Phan ra chuc nang: Dang ky & Theo doi Thuc tap
+
+* He thong Quan ly Thuc tap <<root>>
+** 4. Dang ky & Theo doi Thuc tap <<module>>
+*** 4.1. Sinh vien Dang ky Thuc tap <<group>>
+**** Xem dot thuc tap dang mo dang ky <<func>>
+**** Chon dot thuc tap <<func>>
+*** - Kiem tra thoi han dang ky con mo <<func>>
+**** Khai bao nguyen vong thuc tap <<func>>
+*** - Chon loai: truong phan cong / tu lien he <<func>>
+*** - Nhap vi tri mong muon <<func>>
+**** Upload CV - PDF toi da 5MB <<func>>
+*** - Xac thuc ten / ma SV trong noi dung PDF <<func>>
+**** Kiem tra dieu kien tin chi <<func>>
+*** - Tich luy tu 70% tong tin chi chuong trinh <<func>>
+*** - CNTT: 89/127 TC; KHMT: 106/151 TC <<func>>
+**** Nop don dang ky thuc tap <<func>>
+**** Huy / Cap nhat don dang ky <<func>>
+*** 4.2. Admin Xu ly Don Dang ky <<group>>
+**** Xem danh sach don dang ky <<func>>
+**** Tim kiem / Loc theo trang thai <<func>>
+**** Duyet don dang ky <<func>>
+*** - Chuyen trang thai: cho-duyet → duoc-phan-cong <<func>>
+**** Tu choi don dang ky <<func>>
+*** - Nhap ly do tu choi <<func>>
+*** - Gui thong bao cho SV <<func>>
+**** Xem lich su thay doi trang thai <<func>>
+*** 4.3. Sinh vien Theo doi Trang thai <<group>>
+**** Xem trang thai don dang ky <<func>>
+*** - cho-duyet / duoc-phan-cong / hoan-thanh / huy <<func>>
+**** Xem thong tin GV huong dan <<func>>
+**** Xem thong tin doanh nghiep thuc tap <<func>>
+*** 4.4. Giang vien Theo doi SV <<group>>
+**** Xem ds SV duoc phan cong <<func>>
+**** Xem chi tiet tien do tung SV <<func>>
+*** 4.5. Doanh nghiep Quan ly TTS <<group>>
+**** Dang ky nhan thuc tap sinh <<func>>
+*** - Nhap so luong, mo ta, thoi gian <<func>>
+**** Cap nhat dang ky <<func>>
+**** Huy dang ky (truoc khi duyet) <<func>>
+**** Xem SV duoc phan cong <<func>>
+
+@endwbs

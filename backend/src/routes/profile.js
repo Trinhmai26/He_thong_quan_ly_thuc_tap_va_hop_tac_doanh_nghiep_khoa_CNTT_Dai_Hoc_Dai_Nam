@@ -1,9 +1,71 @@
 const express = require('express');
+const multer  = require('multer');
+const path    = require('path');
+const fs      = require('fs');
 const ProfileController = require('../controllers/ProfileController');
 const { authenticateToken } = require('../middleware/auth');
 const { body } = require('express-validator');
+const connection = require('../database/connection');
 
 const router = express.Router();
+
+// ── Multer cho avatar ─────────────────────────────────────────────────────────
+const avatarStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(__dirname, '../../uploads/avatars');
+    fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
+    cb(null, `avatar_${req.user.id}_${Date.now()}${ext}`);
+  }
+});
+const avatarUpload = multer({
+  storage: avatarStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    if (/^image\/(jpeg|png|gif|webp)$/.test(file.mimetype)) cb(null, true);
+    else cb(new Error('Chỉ chấp nhận file ảnh (JPG, PNG, GIF, WEBP)'));
+  }
+});
+
+// POST /api/profile/avatar
+router.post('/avatar', authenticateToken, avatarUpload.single('avatar'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, message: 'Vui lòng chọn file ảnh' });
+
+    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+
+    // Xóa avatar cũ nếu có
+    const old = await connection.query('SELECT avatar_url FROM accounts WHERE id = ?', [req.user.id]);
+    if (old.length > 0 && old[0].avatar_url) {
+      const oldPath = path.join(__dirname, '../..', old[0].avatar_url);
+      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    }
+
+    await connection.query('UPDATE accounts SET avatar_url = ? WHERE id = ?', [avatarUrl, req.user.id]);
+
+    return res.json({ success: true, message: 'Cập nhật ảnh đại diện thành công', data: { avatar_url: avatarUrl } });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message || 'Lỗi server khi upload ảnh' });
+  }
+});
+
+// DELETE /api/profile/avatar
+router.delete('/avatar', authenticateToken, async (req, res) => {
+  try {
+    const rows = await connection.query('SELECT avatar_url FROM accounts WHERE id = ?', [req.user.id]);
+    if (rows.length > 0 && rows[0].avatar_url) {
+      const filePath = path.join(__dirname, '../..', rows[0].avatar_url);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
+    await connection.query('UPDATE accounts SET avatar_url = NULL WHERE id = ?', [req.user.id]);
+    return res.json({ success: true, message: 'Đã xóa ảnh đại diện' });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Lỗi server khi xóa ảnh' });
+  }
+});
 
 /**
  * @route   GET /api/profile/me

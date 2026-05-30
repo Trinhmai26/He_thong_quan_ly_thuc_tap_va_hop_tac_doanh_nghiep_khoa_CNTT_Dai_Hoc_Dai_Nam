@@ -1,0 +1,102 @@
+@startuml UC02
+
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam linetype polyline
+skinparam nodesep 55
+skinparam ranksep 70
+skinparam usecase {
+  BackgroundColor #FFFDE7
+  BorderColor #E65100
+  FontSize 11
+}
+skinparam actor {
+  BackgroundColor #FAFAFA
+  BorderColor #1A237E
+  FontStyle bold
+  FontSize 12
+}
+skinparam rectangle {
+  BackgroundColor #F5F7FA
+  BorderColor #455A64
+  BorderThickness 2
+  FontStyle bold
+}
+
+title
+  <b>UC02 – Quan ly Ho so Nguoi dung</b>
+  He thong Quan ly Thuc tap – Khoa CNTT DH Dai Nam
+end title
+
+' Actors canh hang doc voi package cua ho
+actor "Admin"        as Admin #FFD0A0
+actor "Giang vien"   as GV    #BBDEFB
+actor "Sinh vien"    as SV    #C8E6C9
+actor "Doanh nghiep" as DN    #FFF9C4
+
+Admin -[hidden]down-> GV
+GV    -[hidden]down-> SV
+SV    -[hidden]down-> DN
+
+rectangle "Quan ly Ho so Nguoi dung" {
+
+  package "Quan ly Sinh vien [Admin]" as P1 {
+    (Xem / Tim kiem SV)           as UC01
+    (Them / Cap nhat / Xoa SV)    as UC02
+    (Import / Xuat danh sach SV)  as UC03
+    (Phan cong GV huong dan)      as UC04
+  }
+
+  package "Quan ly Giang vien [Admin + GV]" as P2 {
+    (Xem / Tim kiem GV)           as UC05
+    (Them / Cap nhat / Xoa GV)    as UC06
+    (Import / Xuat danh sach GV)  as UC07
+    (Xem SV duoc phan cong)       as UC08
+  }
+
+  package "Ho so & CV [Sinh vien]" as P3 {
+    (Xem / Cap nhat ho so ca nhan) as UC09
+    (Upload CV - PDF toi da 5MB)   as UC10
+    (Phan tich CV tu dong)         as UC11
+    (Xoa CV)                       as UC12
+  }
+
+  package "Ho so Doanh nghiep [DN + Admin]" as P4 {
+    (Dang ky tai khoan DN)         as UC13
+    (Xem / Cap nhat ho so DN)      as UC14
+    (Duyet / Tu choi dang ky DN)   as UC15
+    (Import / Xuat danh sach DN)   as UC16
+  }
+}
+
+' Admin → P1 (chinh) + P2 (quan ly) + P4 (quan ly)
+Admin --> UC01
+Admin --> UC02
+Admin --> UC03
+Admin --> UC04
+Admin --> UC05
+Admin --> UC06
+Admin --> UC07
+Admin --> UC15
+Admin --> UC16
+
+' GV → P2 (ho so rieng) + xem SV
+GV --> UC05
+GV --> UC08
+GV --> UC09
+
+' SV → P3 (chinh)
+SV --> UC09
+SV --> UC10
+SV --> UC11
+SV --> UC12
+
+' DN → P4 (chinh)
+DN --> UC13
+DN --> UC14
+
+UC10 ..> UC11 : <<extend>>
+UC15 ..> UC14 : <<include>>
+
+@enduml

@@ -1,0 +1,22 @@
+@startuml SD06
+title SD06 – Nop Bao cao Tuan (Sinh vien)
+
+actor "Sinh vien" as SV
+participant "Frontend" as FE
+participant "Backend" as BE
+database "Database" as DB
+
+SV -> FE : Xem lich su bao cao + tuan can nop
+FE -> BE : GET /api/reports/weekly?sinh_vien_id=?
+BE -> DB : Lay danh sach bao cao da nop
+DB --> BE : Danh sach
+BE --> FE : Hien thi
+
+SV -> FE : Nhap noi dung + dinh kem file (tuy chon)
+FE -> BE : POST /api/reports/weekly\n{ tuan_so, noi_dung, file? }
+BE -> DB : Kiem tra chua nop tuan nay
+BE -> DB : Luu bao cao (trang_thai = da-nop)
+BE -> BE : Thong bao GV co bao cao moi
+BE --> FE : 201 Nop thanh cong
+FE --> SV : "Nop bao cao tuan thanh cong"
+@enduml

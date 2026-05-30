@@ -1,0 +1,136 @@
+@startuml ACTOR04_Doanh_Nghiep
+
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam nodesep 40
+skinparam ranksep 55
+skinparam usecase {
+  BackgroundColor #FFFDE7
+  BorderColor #F9A825
+}
+skinparam actor {
+  BackgroundColor #FFF9C4
+  BorderColor #F57F17
+  FontStyle bold
+  FontSize 13
+}
+skinparam rectangle {
+  BackgroundColor #FFFEF0
+  BorderColor #F9A825
+  BorderThickness 2
+}
+
+title
+  <b>Doanh nghiep – Toan bo chuc nang</b>
+  He thong Quan ly Thuc tap - Khoa CNTT DH Dai Nam
+end title
+
+actor "Doanh nghiep" as DN #FFF9C4
+
+rectangle "Chuc nang cua Doanh nghiep" {
+
+  package "1. Xac thuc & Tai khoan" as P1 {
+    (Dang ky tai khoan doanh nghiep)  as UC101
+    (Dang nhap he thong)              as UC102
+    (Dang xuat)                       as UC103
+    (Doi mat khau)                    as UC104
+    (Quen mat khau)                   as UC105
+    (Xac minh ma OTP)                 as UC106
+    (Dat lai mat khau moi)            as UC107
+  }
+
+  package "2. Ho so Doanh nghiep" as P2 {
+    (Xem ho so doanh nghiep)          as UC201
+    (Cap nhat thong tin DN)           as UC202
+    (Cap nhat linh vuc & quy mo)      as UC203
+    (Cap nhat thong tin lien he)      as UC204
+  }
+
+  package "3. Dang ky nhan Thuc tap sinh" as P3 {
+    (Dang ky nhan thuc tap sinh)      as UC301
+    (Cap nhat dang ky)                as UC302
+    (Huy dang ky (truoc khi duyet))   as UC303
+    (Xem trang thai dang ky)          as UC304
+  }
+
+  package "4. Quy trinh Phong van" as P4 {
+    (Xem ds sinh vien ung tuyen)      as UC401
+    (Xac nhan lich phong van)         as UC402
+    (Nhap ket qua phong van)          as UC403
+    (Xem lich su phong van)           as UC404
+  }
+
+  package "5. Quan ly Thuc tap sinh" as P5 {
+    (Xem ds TTS duoc phan cong)       as UC501
+    (Xem chi tiet ho so TTS)          as UC502
+    (Theo doi trang thai TTS)         as UC503
+    (Xem bao cao tuan cua TTS)        as UC504
+  }
+
+  package "6. Danh gia Thuc tap sinh" as P6 {
+    (Xem bao cao cuoi ky cua TTS)     as UC601
+    (Nhap diem danh gia DN)           as UC602
+    (Nhap nhan xet thai do & ky nang) as UC603
+    (Nop bao cao danh gia DN)         as UC604
+  }
+
+  package "7. Dashboard & Thong ke" as P7 {
+    (Xem dashboard doanh nghiep)      as UC701
+    (Xem ds TTS theo dot)             as UC702
+    (Xem trang thai bao cao TTS)      as UC703
+  }
+
+  package "8. Thong bao" as P8 {
+    (Xem danh sach thong bao)         as UC801
+    (Danh dau da doc)                 as UC802
+    (Xoa thong bao)                   as UC803
+    (Nhan TB ket qua phong van)       as UC804
+    (Nhan TB phan cong TTS)           as UC805
+  }
+}
+
+DN --> UC101
+DN --> UC102
+DN --> UC103
+DN --> UC104
+DN --> UC105
+DN --> UC201
+DN --> UC202
+DN --> UC203
+DN --> UC204
+DN --> UC301
+DN --> UC302
+DN --> UC303
+DN --> UC304
+DN --> UC401
+DN --> UC402
+DN --> UC403
+DN --> UC404
+DN --> UC501
+DN --> UC502
+DN --> UC503
+DN --> UC504
+DN --> UC601
+DN --> UC604
+DN --> UC701
+DN --> UC702
+DN --> UC703
+DN --> UC801
+DN --> UC802
+DN --> UC803
+DN --> UC804
+DN --> UC805
+
+UC105 ..> UC106 : <<include>>
+UC106 ..> UC107 : <<include>>
+UC301 ..> UC201 : <<include>>
+UC402 ..> UC401 : <<include>>
+UC403 ..> UC402 : <<include>>
+UC602 ..> UC601 : <<include>>
+UC603 ..> UC601 : <<include>>
+UC604 ..> UC602 : <<include>>
+UC604 ..> UC603 : <<include>>
+UC702 ..> UC701 : <<extend>>
+
+@enduml

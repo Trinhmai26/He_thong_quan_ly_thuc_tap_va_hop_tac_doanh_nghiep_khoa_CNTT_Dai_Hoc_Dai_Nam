@@ -21,7 +21,7 @@ function _fmtDate(dt) {
   } catch { return String(dt); }
 }
 
-async function _enqueueSlotNotifications(lecturerId, gvHoTen, slotId, { tieu_de, loai_bao_cao, start_at, end_at }) {
+async function _enqueueSlotNotifications(lecturerId, gvHoTen, maGiangVien, slotId, { tieu_de, loai_bao_cao, start_at, end_at }) {
   try {
     const isNhatKy = loai_bao_cao === 'tuan';
     const typeName = isNhatKy ? 'nhật ký thực tập' : 'báo cáo thực tập';
@@ -32,16 +32,33 @@ async function _enqueueSlotNotifications(lecturerId, gvHoTen, slotId, { tieu_de,
     const reminderAt = end_at ? new Date(new Date(end_at).getTime() - 24 * 60 * 60 * 1000) : null;
     const now        = new Date();
 
-    // giang_vien_huong_dan = ho_ten của GV → query bằng ho_ten, lấy cả tên SV
-    const students = await db.query(
-      `SELECT id, so_dien_thoai, ho_ten FROM sinh_vien
-       WHERE giang_vien_huong_dan = ?
-         AND so_dien_thoai IS NOT NULL AND TRIM(so_dien_thoai) != ''`,
-      [gvHoTen]
-    );
+    // Ưu tiên 1: bảng sinh_vien_huong_dan (nguồn chính xác nhất, query bằng ma_giang_vien)
+    let students = [];
+    if (maGiangVien) {
+      try {
+        students = await db.query(
+          `SELECT sv.id, sv.so_dien_thoai, sv.ho_ten
+           FROM sinh_vien sv
+           INNER JOIN sinh_vien_huong_dan svhd ON svhd.ma_sinh_vien = sv.ma_sinh_vien
+           WHERE svhd.ma_giang_vien = ?`,
+          [maGiangVien]
+        );
+      } catch (e) {
+        if (e.code !== 'ER_NO_SUCH_TABLE') throw e;
+      }
+    }
+
+    // Ưu tiên 2: fallback qua cột giang_vien_huong_dan trong sinh_vien (LOWER+TRIM để chống lỗi encoding)
+    if (!students.length && gvHoTen) {
+      students = await db.query(
+        `SELECT id, so_dien_thoai, ho_ten FROM sinh_vien
+         WHERE LOWER(TRIM(giang_vien_huong_dan)) = LOWER(TRIM(?))`,
+        [gvHoTen]
+      );
+    }
 
     if (!students.length) {
-      console.log(`[ZaloQueue] GV "${gvHoTen}": không có SV có SĐT. Không queue.`);
+      console.log(`[ZaloQueue] GV "${gvHoTen}" (${maGiangVien}): không có SV có SĐT. Không queue.`);
       return 0;
     }
 
@@ -102,7 +119,7 @@ async function _enqueueSlotNotifications(lecturerId, gvHoTen, slotId, { tieu_de,
       }
     }
 
-    console.log(`[ZaloQueue] GV "${gvHoTen}" | Slot #${slotId} "${tieu_de}" | Queue ${queued} SV | Loại: ${msgType}`);
+    console.log(`[ZaloQueue] GV "${gvHoTen}" (${maGiangVien}) | Slot #${slotId} "${tieu_de}" | Queue ${queued} SV | Loại: ${msgType}`);
     return queued;
   } catch (err) {
     console.error('[ZaloQueue] _enqueueSlotNotifications error:', err.message);
@@ -110,6 +127,25 @@ async function _enqueueSlotNotifications(lecturerId, gvHoTen, slotId, { tieu_de,
   }
 }
 // ─────────────────────────────────────────────────────────────────────────────
+
+// Cập nhật scheduled_at của deadline_24h_reminder khi deadline thay đổi.
+// Chỉ cập nhật các tin chưa gửi (pending/failed/cancelled).
+async function _rescheduleReminder(slotId, end_at) {
+  try {
+    const newReminderAt = new Date(new Date(end_at).getTime() - 24 * 60 * 60 * 1000);
+    if (isNaN(newReminderAt.getTime())) return;
+    await db.query(
+      `UPDATE zalo_message_queue
+       SET scheduled_at = ?, status = 'pending', retry_count = 0, failed_reason = NULL, updated_at = NOW()
+       WHERE related_id = ?
+         AND type = 'deadline_24h_reminder'
+         AND status NOT IN ('sent','processing')`,
+      [newReminderAt, slotId]
+    );
+  } catch (err) {
+    console.warn('[ZaloQueue] _rescheduleReminder error:', err.message);
+  }
+}
 
 // Try to decode multipart filename (often latin1) to utf8 to keep Vietnamese characters correct
 const decodeFilename = (name) => {
@@ -167,16 +203,16 @@ module.exports = {
 
       // Đưa vào hàng đợi Zalo — dùng gvHoTen để query đúng sinh viên
       let zaloQueued = 0;
-      if (gvHoTen) {
+      if (gvHoTen || maGiangVien) {
         zaloQueued = await _enqueueSlotNotifications(
-          req.user?.id || null, gvHoTen, id,
+          req.user?.id || null, gvHoTen, maGiangVien, id,
           { tieu_de, loai_bao_cao, start_at, end_at }
         ).catch(err => {
           console.error('[ZaloQueue] enqueue error:', err.message);
           return 0;
         });
       } else {
-        console.warn(`[ZaloQueue] createSlot: không có hoTen trong JWT — bỏ qua queue Zalo`);
+        console.warn(`[ZaloQueue] createSlot: không có hoTen/maGiangVien trong JWT — bỏ qua queue Zalo`);
       }
 
       return res.json({
@@ -244,6 +280,7 @@ module.exports = {
       if (!slot) return res.status(404).json({ message: 'Không tìm thấy đợt nộp' });
 
       await TeacherSubmissions.updateSlot(maGiangVien, Number(slotId), { tieu_de, mo_ta, loai_bao_cao: loai_bao_cao || 'tuan', start_at, end_at });
+      await _rescheduleReminder(Number(slotId), end_at);
       return res.json({ success: true });
     } catch (err) {
       console.error('updateSlot error:', err);
@@ -267,6 +304,7 @@ module.exports = {
       if (!slot) return res.status(404).json({ message: 'Không tìm thấy đợt nộp' });
 
       const r = await TeacherSubmissions.updateSlotTimes(maGiangVien, Number(slotId), { start_at, end_at });
+      await _rescheduleReminder(Number(slotId), end_at);
       return res.json({ success: true, updated: r.affectedRows });
     } catch (err) {
       console.error('updateSlotTimes error:', err);

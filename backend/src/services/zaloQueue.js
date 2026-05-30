@@ -49,10 +49,16 @@ async function enqueueMessage({
 }) {
   try {
     await db.query(
-      `INSERT IGNORE INTO zalo_message_queue
+      `INSERT INTO zalo_message_queue
          (lecturer_id, student_id, phone, title, message, type, related_id,
           status, priority, scheduled_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, NOW(), NOW())`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, NOW(), NOW())
+       ON DUPLICATE KEY UPDATE
+         status       = IF(status IN ('failed','cancelled'), 'pending', status),
+         scheduled_at = IF(status IN ('failed','cancelled'), VALUES(scheduled_at), scheduled_at),
+         retry_count  = IF(status IN ('failed','cancelled'), 0, retry_count),
+         failed_reason= IF(status IN ('failed','cancelled'), NULL, failed_reason),
+         updated_at   = NOW()`,
       [
         lecturerId,
         studentId,

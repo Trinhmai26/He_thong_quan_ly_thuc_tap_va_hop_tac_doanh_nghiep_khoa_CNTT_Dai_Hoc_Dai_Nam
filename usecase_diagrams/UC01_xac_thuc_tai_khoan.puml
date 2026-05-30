@@ -1,0 +1,91 @@
+@startuml UC01
+
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam linetype polyline
+skinparam nodesep 55
+skinparam ranksep 70
+skinparam usecase {
+  BackgroundColor #FFFDE7
+  BorderColor #E65100
+  FontSize 11
+}
+skinparam actor {
+  BackgroundColor #FAFAFA
+  BorderColor #1A237E
+  FontStyle bold
+  FontSize 12
+}
+skinparam rectangle {
+  BackgroundColor #F5F7FA
+  BorderColor #455A64
+  BorderThickness 2
+  FontStyle bold
+}
+
+title
+  <b>UC01 – Xac thuc & Quan ly Tai khoan</b>
+  He thong Quan ly Thuc tap – Khoa CNTT DH Dai Nam
+end title
+
+' ── Actor generalization: giam duong ke chung ──
+actor "Nguoi su dung"  as User  #E8EAF6
+actor "Admin"          as Admin #FFD0A0
+actor "Giang vien"     as GV    #BBDEFB
+actor "Sinh vien"      as SV    #C8E6C9
+actor "Doanh nghiep"   as DN    #FFF9C4
+
+Admin -|> User
+GV    -|> User
+SV    -|> User
+DN    -|> User
+
+Admin -[hidden]down-> GV
+GV    -[hidden]down-> SV
+SV    -[hidden]down-> DN
+
+rectangle "Xac thuc & Quan ly Tai khoan" {
+
+  package "Dang nhap & Dang xuat" as P1 {
+    (Dang nhap he thong)          as UC01
+    (Dang xuat)                   as UC02
+  }
+
+  package "Quan ly Mat khau" as P2 {
+    (Doi mat khau)                as UC03
+    (Quen mat khau)               as UC04
+    (Xac minh ma OTP)             as UC05
+    (Dat lai mat khau moi)        as UC06
+  }
+
+  package "Ho so Ca nhan" as P3 {
+    (Xem ho so ca nhan)           as UC07
+    (Cap nhat thong tin ca nhan)  as UC08
+  }
+
+  package "Quan tri Tai khoan\n[chi Admin]" as P4 {
+    (Tao tai khoan moi)           as UC09
+    (Kich hoat / Vo hieu hoa TK)  as UC10
+    (Quan ly tai khoan he thong)  as UC11
+  }
+}
+
+' Nguoi su dung chung (1 bo ket noi thay cho 4)
+User  --> UC01
+User  --> UC02
+User  --> UC03
+User  --> UC04
+User  --> UC07
+User  --> UC08
+
+' Chi Admin
+Admin --> UC09
+Admin --> UC10
+Admin --> UC11
+
+UC04 ..> UC05 : <<include>>
+UC05 ..> UC06 : <<include>>
+UC03 ..> UC05 : <<include>>
+
+@enduml

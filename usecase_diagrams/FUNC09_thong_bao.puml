@@ -1,0 +1,69 @@
+@startwbs FUNC09
+
+<style>
+wbsDiagram {
+  LineColor #455A64
+  BackgroundColor #FAFAFA
+  .root {
+    BackgroundColor #37474F
+    FontColor white
+    FontStyle bold
+  }
+  .module {
+    BackgroundColor #558B2F
+    FontColor white
+    FontStyle bold
+  }
+  .group {
+    BackgroundColor #F1F8E9
+    FontColor #33691E
+    FontStyle bold
+  }
+  .func {
+    BackgroundColor #FFFDE7
+    FontColor #333
+  }
+}
+</style>
+
+title FUNC09 – Phan ra chuc nang: Thong bao & Nhac nho
+
+* He thong Quan ly Thuc tap <<root>>
+** 9. Thong bao & Nhac nho <<module>>
+*** 9.1. Gui Thong bao (Admin) <<group>>
+**** Gui thong bao in-app <<func>>
+*** - Chon loai: info / success / warning / error <<func>>
+*** - Nhap tieu de & noi dung <<func>>
+*** - Gui den mot / nhieu nguoi dung <<func>>
+**** Gui Email hang loat <<func>>
+*** - Chon nhom nguoi nhan <<func>>
+*** - Soan noi dung Email <<func>>
+*** - Gui qua Nodemailer <<func>>
+**** Gui tin nhan Zalo ca nhan <<func>>
+**** Gui tin nhan Zalo hang loat <<func>>
+**** Gui thong bao den SV theo dot <<func>>
+*** 9.2. Gui Thong bao (Giang vien) <<group>>
+**** Gui thong bao den SV cua minh <<func>>
+*** - Tu dong lay ds SV tu JWT token <<func>>
+**** Gui tin nhan Zalo cho SV <<func>>
+*** 9.3. Nhan & Quan ly (Tat ca) <<group>>
+**** Xem danh sach thong bao <<func>>
+*** - Phan trang, sap xep theo thoi gian <<func>>
+*** - Loc theo da doc / chua doc <<func>>
+**** Xem chi tiet thong bao <<func>>
+**** Danh dau da doc (1 thong bao) <<func>>
+**** Danh dau da doc tat ca <<func>>
+**** Xoa thong bao <<func>>
+*** 9.4. Thong bao Tu dong (He thong) <<group>>
+**** TB ket qua phan cong GV / DN <<func>>
+*** - Gui ngay khi Admin xac nhan phan cong <<func>>
+**** TB ket qua phong van <<func>>
+*** - Gui khi DN nhap ket qua <<func>>
+**** TB nhan xet & diem so <<func>>
+*** - Gui khi GV / DN hoan thanh cham diem <<func>>
+**** Nhac nho deadline nop bao cao tuan <<func>>
+*** - Gui Email truoc han 24 gio <<func>>
+**** TB trang thai don dang ky <<func>>
+*** - Gui khi Admin duyet / tu choi don <<func>>
+
+@endwbs

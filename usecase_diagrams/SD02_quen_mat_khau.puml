@@ -1,0 +1,26 @@
+@startuml SD02
+title SD02 – Quen mat khau (OTP)
+
+actor "Nguoi dung" as U
+participant "Frontend" as FE
+participant "Backend" as BE
+participant "Email" as MAIL
+database "Database" as DB
+
+U -> FE : Nhap email
+FE -> BE : POST /api/password/send-reset-code
+BE -> DB : Luu ma OTP (het han 15 phut)
+BE -> MAIL : Gui Email chua ma OTP
+MAIL --> U : Nhan ma OTP
+
+U -> FE : Nhap ma OTP
+FE -> BE : POST /api/password/verify-reset-code
+BE -> DB : Kiem tra ma OTP hop le
+BE --> FE : Ma hop le
+
+U -> FE : Nhap mat khau moi
+FE -> BE : POST /api/password/reset-password
+BE -> DB : Cap nhat mat khau moi + danh dau OTP da dung
+BE --> FE : 200 Thanh cong
+FE --> U : Chuyen den trang Dang nhap
+@enduml

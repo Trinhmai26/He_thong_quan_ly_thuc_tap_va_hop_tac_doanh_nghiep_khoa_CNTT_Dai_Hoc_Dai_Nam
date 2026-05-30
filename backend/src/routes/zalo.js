@@ -85,6 +85,22 @@ router.post(
   ZaloController.sendToStudents
 );
 
+// Danh sách giảng viên kèm SĐT (chỉ admin)
+router.get(
+  '/lecturers',
+  authenticateToken,
+  requireRole(['admin']),
+  ZaloController.getLecturerZaloList
+);
+
+// Gửi Zalo riêng từng giảng viên theo lecturerIds (chỉ admin)
+router.post(
+  '/send-to-lecturers',
+  authenticateToken,
+  requireRole(['admin']),
+  ZaloController.sendToLecturers
+);
+
 // Giảng viên gửi thủ công cho sinh viên CỦA MÌNH qua hàng đợi
 // Backend tự lấy lecturer_id từ JWT, không nhận từ frontend
 router.post(
@@ -92,6 +108,67 @@ router.post(
   authenticateToken,
   requireRole(['admin', 'giang-vien']),
   ZaloController.sendToMyStudents
+);
+
+// Kích hoạt gửi thông báo tự động ngay (admin + giảng viên)
+router.post(
+  '/trigger-reminders',
+  authenticateToken,
+  requireRole(['admin', 'giang-vien']),
+  ZaloController.triggerReminders
+);
+
+// === DEBUG: xem trạng thái queue (chỉ admin) ===
+router.get(
+  '/queue-debug',
+  authenticateToken,
+  requireRole(['admin']),
+  async (req, res) => {
+    const db = require('../database/connection');
+    try {
+      // Thống kê queue theo status
+      const stats = await db.query(
+        `SELECT status, COUNT(*) AS cnt FROM zalo_message_queue GROUP BY status ORDER BY status`
+      );
+
+      // 10 tin nhắn mới nhất trong queue
+      const recent = await db.query(
+        `SELECT id, student_id, phone, title, type, status, failed_reason, retry_count,
+                scheduled_at, sent_at, created_at
+         FROM zalo_message_queue
+         ORDER BY created_at DESC LIMIT 10`
+      );
+
+      // Tất cả sinh viên + SĐT (debug không cần lọc theo GV)
+      const students = await db.query(
+        `SELECT sv.id, sv.ma_sinh_vien, sv.ho_ten, sv.so_dien_thoai,
+                sv.giang_vien_huong_dan
+         FROM sinh_vien sv
+         ORDER BY sv.ho_ten
+         LIMIT 20`
+      );
+
+      // Thống kê SĐT
+      const phoneStats = await db.query(
+        `SELECT
+           COUNT(*) AS total,
+           SUM(CASE WHEN so_dien_thoai IS NOT NULL AND TRIM(so_dien_thoai) != '' THEN 1 ELSE 0 END) AS co_sdt
+         FROM sinh_vien`
+      );
+
+      return res.json({
+        success: true,
+        data: {
+          queue_stats: stats,
+          recent_messages: recent,
+          student_phone_summary: phoneStats[0],
+          sample_students: students,
+        },
+      });
+    } catch (err) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
 );
 
 module.exports = router;

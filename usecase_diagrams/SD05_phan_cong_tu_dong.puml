@@ -1,0 +1,23 @@
+@startuml SD05
+title SD05 – Phan cong Tu dong (Auto-Assign)
+
+actor "Admin" as A
+participant "Frontend" as FE
+participant "Backend" as BE
+database "Database" as DB
+
+A -> FE : Nhan "Phan cong tu dong"
+FE -> BE : POST /api/auto-assign/run\n{ dot_thuc_tap_id }
+BE -> DB : Lay danh sach SV chua phan cong
+BE -> DB : Lay danh sach GV + tai trong
+BE -> DB : Lay danh sach DN con slot
+BE -> BE : Chay thuat toan:\n- Khop nguyen vong SV voi linh vuc DN\n- Can bang tai GV (15-20 SV/GV)
+BE --> FE : Ket qua preview
+
+A -> FE : Xac nhan phan cong
+FE -> BE : PATCH /api/auto-assign/confirm
+BE -> DB : Tao tat ca ban ghi phan cong
+BE -> DB : Cap nhat trang thai SV & tai trong GV
+BE --> FE : 200 Hoan tat { assigned: N }
+FE --> A : "Phan cong N sinh vien thanh cong"
+@enduml

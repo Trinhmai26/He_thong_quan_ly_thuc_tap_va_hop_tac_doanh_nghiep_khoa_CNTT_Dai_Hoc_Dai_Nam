@@ -1,0 +1,28 @@
+@startuml SD08
+title SD08 – Nop & Cham diem Bao cao Cuoi ky
+
+actor "Sinh vien" as SV
+actor "Giang vien" as GV
+actor "Doanh nghiep" as DN
+participant "Backend" as BE
+database "Database" as DB
+
+== Sinh vien nop ==
+SV -> BE : POST /api/reports/final\n{ tieu_de, file_bao_cao }
+BE -> DB : Luu bao cao cuoi ky (cho_duyet)
+BE --> SV : 201 Nop thanh cong
+
+== Giang vien cham diem ==
+GV -> BE : GET /api/reports/final
+BE -> DB : Lay BC cuoi ky cua SV minh
+DB --> GV : Danh sach
+GV -> BE : POST /api/reports/final/:id/grade-teacher\n{ diem_giang_vien, nhan_xet }
+BE -> DB : Luu diem GV
+BE --> GV : 200 Da luu
+
+== Doanh nghiep danh gia ==
+DN -> BE : POST /api/reports/final/:id/grade-company\n{ diem_doanh_nghiep, nhan_xet }
+BE -> DB : Luu diem DN + trang_thai = da_duyet
+BE -> BE : Thong bao SV ket qua cuoi ky
+BE --> DN : 200 Da luu
+@enduml

@@ -1,0 +1,69 @@
+@startwbs FUNC08
+
+<style>
+wbsDiagram {
+  LineColor #455A64
+  BackgroundColor #FAFAFA
+  .root {
+    BackgroundColor #37474F
+    FontColor white
+    FontStyle bold
+  }
+  .module {
+    BackgroundColor #00838F
+    FontColor white
+    FontStyle bold
+  }
+  .group {
+    BackgroundColor #E0F7FA
+    FontColor #006064
+    FontStyle bold
+  }
+  .func {
+    BackgroundColor #FFFDE7
+    FontColor #333
+  }
+}
+</style>
+
+title FUNC08 – Phan ra chuc nang: Dashboard & Thong ke
+
+* He thong Quan ly Thuc tap <<root>>
+** 8. Dashboard & Thong ke <<module>>
+*** 8.1. Admin Dashboard <<group>>
+**** Xem tong quan he thong <<func>>
+*** - Tong SV, GV, DN, dot TT <<func>>
+*** - So SV da phan cong / chua phan cong <<func>>
+**** Thong ke trang thai phan cong <<func>>
+*** - Bieu do trang thai: cho / da phan cong / hoan thanh <<func>>
+**** Thong ke bao cao <<func>>
+*** - Ti le nop bao cao tuan dung han <<func>>
+*** - So bao cao chua cham / da cham <<func>>
+**** Xem SV theo dot thuc tap <<func>>
+*** - Loc theo dot lon / dot nho <<func>>
+*** - Hien thi GV & DN tuong ung <<func>>
+**** Xuat danh sach SV theo dot ra Excel <<func>>
+**** Xem bao cao chi tiet theo ky <<func>>
+*** 8.2. Giang vien Dashboard <<group>>
+**** Xem ds SV duoc phan cong <<func>>
+*** - Ten, ma SV, ten DN, trang thai <<func>>
+**** Xem tien do nop bao cao tuan <<func>>
+*** - So tuan da nop / tong so tuan <<func>>
+**** Xem thong ke diem so lop <<func>>
+*** - Diem trung binh, ti le hoan thanh <<func>>
+*** 8.3. Sinh vien Dashboard <<group>>
+**** Xem tien do thuc tap ca nhan <<func>>
+*** - So tuan da nop bao cao <<func>>
+*** - Trang thai phan cong <<func>>
+**** Xem lich su nop bao cao <<func>>
+**** Xem diem so tong ket <<func>>
+*** - Diem GV BC tuan (trung binh) <<func>>
+*** - Diem GV BC cuoi ky <<func>>
+*** - Diem DN danh gia <<func>>
+*** 8.4. Doanh nghiep Dashboard <<group>>
+**** Xem ds thuc tap sinh <<func>>
+*** - Ten SV, truong, chuyen nganh <<func>>
+**** Xem trang thai bao cao cua TTS <<func>>
+*** - Da nop / chua nop BC cuoi ky <<func>>
+
+@endwbs

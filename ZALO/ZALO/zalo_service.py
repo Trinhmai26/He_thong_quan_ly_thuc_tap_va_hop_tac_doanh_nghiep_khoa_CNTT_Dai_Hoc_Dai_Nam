@@ -175,7 +175,11 @@ class ZaloService:
                     if not uid and isinstance(data, dict):
                         uid = data.get('userId') or data.get('uid')
             return str(uid) if uid else None
-        except Exception:
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning(
+                "lookup_uid_by_phone(%s) failed: %s: %s", phone, type(exc).__name__, exc
+            )
             return None
 
     def send_message_by_uid(self, uid: str, message: str) -> Dict[str, Any]:

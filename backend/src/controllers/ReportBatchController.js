@@ -1,5 +1,7 @@
 const ReportBatchModel = require('../models/ReportBatch');
 const ExcelJS = require('exceljs');
+const db = require('../database/connection');
+const { enqueueBatch } = require('../services/zaloQueue');
 
 class ReportBatchController {
   // GET /api/report-batches - Lấy danh sách đợt báo cáo
@@ -105,6 +107,11 @@ class ReportBatchController {
         message: 'Tạo đợt báo cáo thành công',
         data: newBatch
       });
+
+      // Gửi thông báo Zalo cho sinh viên trong background (không block response)
+      _notifyStudentsNewBatch(newBatch, batchData).catch(err =>
+        console.error('[ReportBatch] Zalo notify error:', err.message)
+      );
     } catch (error) {
       const statusCode = error.message.includes('đã tồn tại') ? 409 : 500;
       res.status(statusCode).json({
@@ -324,6 +331,72 @@ class ReportBatchController {
       });
     }
   }
+}
+
+/**
+ * Đưa thông báo Zalo vào hàng đợi cho toàn bộ sinh viên của đợt thực tập
+ * khi một đợt nộp báo cáo / nhật ký mới được tạo.
+ */
+async function _notifyStudentsNewBatch(newBatch, batchData) {
+  const dotThucTapId = batchData.dot_thuc_tap_id;
+  const loai = batchData.loai_bao_cao; // 'weekly' | 'final'
+  const queueType = loai === 'weekly' ? 'new_diary_period' : 'new_report_period';
+
+  const loaiLabel  = loai === 'weekly' ? 'Nhật ký thực tập' : 'Báo cáo thực tập';
+  const hanNop     = new Date(batchData.han_nop).toLocaleString('vi-VN', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+
+  const title   = `📋 Mở đợt nộp ${loaiLabel} mới`;
+  const message = `Đợt "${batchData.ten_dot}" vừa được mở.\nHạn nộp: ${hanNop}.\nVui lòng đăng nhập hệ thống để nộp đúng hạn.`;
+
+  // Ưu tiên lấy SV đã phân công trong đợt thực tập
+  let students = [];
+  try {
+    students = await db.query(
+      `SELECT sv.id AS student_id, sv.so_dien_thoai AS phone
+       FROM sinh_vien sv
+       INNER JOIN phan_cong_thuc_tap pc ON pc.sinh_vien_id = sv.id
+       WHERE pc.dot_thuc_tap_id = ?`,
+      [dotThucTapId]
+    );
+  } catch (e) {
+    if (e.code !== 'ER_NO_SUCH_TABLE') throw e;
+  }
+
+  // Fallback: lấy từ sinh_vien_thuc_tap nếu bảng phan_cong chưa có
+  if (!students.length) {
+    try {
+      students = await db.query(
+        `SELECT sv.id AS student_id, sv.so_dien_thoai AS phone
+         FROM sinh_vien sv
+         INNER JOIN sinh_vien_thuc_tap svtt ON svtt.ma_sinh_vien = sv.ma_sinh_vien
+         WHERE svtt.dot_thuc_tap_id = ?`,
+        [dotThucTapId]
+      );
+    } catch (e) {
+      if (e.code !== 'ER_NO_SUCH_TABLE') throw e;
+    }
+  }
+
+  if (!students.length) {
+    console.log(`[ReportBatch] Không có sinh viên nào để thông báo cho đợt thực tập #${dotThucTapId}`);
+    return;
+  }
+
+  const messages = students.map(sv => ({
+    studentId: sv.student_id,
+    phone:     sv.phone || null,
+    title,
+    message,
+    type:      queueType,
+    relatedId: newBatch.id,
+    priority:  3,
+  }));
+
+  const count = await enqueueBatch(messages);
+  console.log(`[ReportBatch] Đã queue ${count} tin nhắn Zalo (${queueType}) cho đợt báo cáo #${newBatch.id}`);
 }
 
 module.exports = ReportBatchController;

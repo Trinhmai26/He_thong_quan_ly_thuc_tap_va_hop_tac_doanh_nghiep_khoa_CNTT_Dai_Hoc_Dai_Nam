@@ -1,0 +1,277 @@
+@startuml CLASS_DIAGRAM
+
+skinparam classAttributeIconSize 0
+skinparam classFontSize 11
+skinparam classBackgroundColor #FFFDE7
+skinparam classBorderColor #E65100
+skinparam classArrowColor #37474F
+skinparam packageBackgroundColor #EEF2F7
+skinparam packageBorderColor #1565C0
+skinparam linetype ortho
+skinparam nodesep 50
+skinparam ranksep 60
+
+title
+  <b>Bieu do Lop Thuc the</b>
+  He thong Quan ly Thuc tap – Khoa CNTT DH Dai Nam
+end title
+
+' ════════════════════════════
+'  NHOM 1 – NGUOI DUNG
+' ════════════════════════════
+package "Nguoi dung" #E8F5E9 {
+
+  class accounts <<Entity>> {
+    + id : INT <<PK>>
+    + user_id : VARCHAR(50) <<UK>>
+    + email : VARCHAR(255) <<UK>>
+    + password_hash : VARCHAR(255)
+    + role : ENUM
+    + is_active : BOOLEAN
+  }
+
+  class admin <<Entity>> {
+    + id : INT <<PK>>
+    + account_id : INT <<FK>>
+    + full_name : VARCHAR(255)
+    + position : VARCHAR(100)
+  }
+
+  class sinh_vien <<Entity>> {
+    + id : INT <<PK>>
+    + account_id : INT <<FK>>
+    + ma_sinh_vien : VARCHAR(20) <<UK>>
+    + ho_ten : VARCHAR(255)
+    + lop : VARCHAR(50)
+    + khoa : VARCHAR(100)
+    + gpa : DECIMAL(3,2)
+    + so_tc_tich_luy : DECIMAL(4,1)
+    + tinh_trang_hoc_tap : ENUM
+    + trang_thai_phan_cong : VARCHAR(50)
+    + cv_path : VARCHAR(255)
+    + zalo_user_id : VARCHAR(100)
+  }
+
+  class giang_vien <<Entity>> {
+    + id : INT <<PK>>
+    + account_id : INT <<FK>>
+    + ma_giang_vien : VARCHAR(20) <<UK>>
+    + ho_ten : VARCHAR(255)
+    + khoa : VARCHAR(100)
+    + hoc_vi : VARCHAR(50)
+    + so_sinh_vien_huong_dan : INT
+    + zalo_user_id : VARCHAR(100)
+  }
+
+  class doanh_nghiep <<Entity>> {
+    + id : INT <<PK>>
+    + account_id : INT <<FK>>
+    + ma_doanh_nghiep : VARCHAR(20) <<UK>>
+    + ten_cong_ty : VARCHAR(255)
+    + linh_vuc_hoat_dong : VARCHAR(255)
+    + so_luong_nhan_thuc_tap : INT
+    + trang_thai_hop_tac : ENUM
+  }
+
+  class doi_mat_khau <<Entity>> {
+    + id : INT <<PK>>
+    + email : VARCHAR(255)
+    + reset_code : VARCHAR(6)
+    + expiration_time : DATETIME
+    + used_flag : TINYINT(1)
+  }
+}
+
+' ════════════════════════════
+'  NHOM 2 – DOT & PHAN CONG
+' ════════════════════════════
+package "Dot Thuc tap & Phan cong" #FFF8E1 {
+
+  class dot_thuc_tap <<Entity>> {
+    + id : INT <<PK>>
+    + ten_dot : VARCHAR(255)
+    + thoi_gian_bat_dau : DATE
+    + thoi_gian_ket_thuc : DATE
+    + trang_thai : ENUM
+  }
+
+  class thoi_gian_dang_ky <<Entity>> {
+    + id : INT <<PK>>
+    + title : VARCHAR(255)
+    + start_time : DATETIME
+    + end_time : DATETIME
+    + is_active : TINYINT(1)
+  }
+
+  class dang_ky_thuc_tap <<Entity>> {
+    + id : INT <<PK>>
+    + sinh_vien_id : INT <<FK>>
+    + nguoi_duyet_id : INT <<FK>>
+    + nguyen_vong_thuc_tap : VARCHAR(100)
+    + vi_tri_thuc_tap_mong_muon : VARCHAR(255)
+    + trang_thai : ENUM
+    + workflow_status : ENUM
+    + ly_do_tu_choi : TEXT
+  }
+
+  class phan_cong_thuc_tap <<Entity>> {
+    + id : INT <<PK>>
+    + sinh_vien_id : INT <<FK>>
+    + giang_vien_id : INT <<FK>>
+    + doanh_nghiep_id : INT <<FK>>
+    + dot_thuc_tap_id : INT <<FK>>
+    + ngay_bat_dau : DATE
+    + ngay_ket_thuc : DATE
+    + trang_thai : ENUM
+    + workflow_status : ENUM
+    + diem_so : DECIMAL(3,1)
+  }
+
+  class sinh_vien_huong_dan <<Entity>> {
+    + id : INT <<PK>>
+    + ma_giang_vien : VARCHAR(20) <<FK>>
+    + ma_sinh_vien : VARCHAR(20) <<FK>>
+    + vi_tri_thuc_tap : VARCHAR(255)
+    + doanh_nghiep_thuc_tap : VARCHAR(255)
+  }
+
+  class internship_timeline_milestones <<Entity>> {
+    + id : INT <<PK>>
+    + dot_thuc_tap_id : INT <<FK>>
+    + moc_code : ENUM
+    + ten_moc : VARCHAR(255)
+    + start_at : DATETIME
+    + end_at : DATETIME
+    + is_required : TINYINT(1)
+  }
+
+  class internship_workflow_history <<Entity>> {
+    + id : BIGINT <<PK>>
+    + entity_type : ENUM
+    + entity_id : INT
+    + from_status : VARCHAR(50)
+    + to_status : VARCHAR(50)
+    + changed_by_account_id : INT <<FK>>
+    + changed_at : TIMESTAMP
+  }
+}
+
+' ════════════════════════════
+'  NHOM 3 – BAO CAO
+' ════════════════════════════
+package "Bao cao & Danh gia" #E8EAF6 {
+
+  class bao_cao <<Entity>> {
+    + id : INT <<PK>>
+    + phan_cong_thuc_tap_id : INT <<FK>>
+    + loai_bao_cao : ENUM
+    + tuan_so : INT
+    + tieu_de : VARCHAR(500)
+    + file_path : VARCHAR(500)
+    + trang_thai : ENUM
+    + diem : DECIMAL(4,2)
+    + nhan_xet : TEXT
+  }
+
+  class bao_cao_da_nop <<Entity>> {
+    + id : VARCHAR(36) <<PK>>
+    + ma_sinh_vien : VARCHAR(20) <<FK>>
+    + dot_thuc_tap_id : INT <<FK>>
+    + tieu_de : VARCHAR(500)
+    + file_path : VARCHAR(500)
+    + loai_bao_cao : ENUM
+    + trang_thai_duyet : ENUM
+    + ngay_nop : DATETIME
+  }
+
+  class dot_nop_bao_cao <<Entity>> {
+    + id : INT <<PK>>
+    + ma_giang_vien : VARCHAR(20) <<FK>>
+    + tieu_de : VARCHAR(255)
+    + loai_bao_cao : ENUM
+    + start_at : DATETIME
+    + end_at : DATETIME
+  }
+
+  class bai_nop_cua_sinh_vien <<Entity>> {
+    + id : INT <<PK>>
+    + slot_id : INT <<FK>>
+    + ma_sinh_vien : VARCHAR(20)
+    + file_path : VARCHAR(512)
+    + submitted_at : TIMESTAMP
+    + trang_thai : ENUM
+  }
+
+  class diem_theo_dot_nop <<Entity>> {
+    + id : INT <<PK>>
+    + slot_id : INT <<FK>>
+    + ma_sinh_vien : VARCHAR(20)
+    + diem_giang_vien : DECIMAL(4,2)
+    + nhan_xet_giang_vien : TEXT
+  }
+}
+
+' ════════════════════════════
+'  NHOM 4 – THONG BAO
+' ════════════════════════════
+package "Thong bao & Zalo" #E0F7FA {
+
+  class notifications <<Entity>> {
+    + id : INT <<PK>>
+    + receiver_id : INT <<FK>>
+    + student_id : INT <<FK>>
+    + title : VARCHAR(255)
+    + type : ENUM
+    + is_read : TINYINT(1)
+    + action_type : VARCHAR(100)
+  }
+
+  class zalo_message_queue <<Entity>> {
+    + id : INT <<PK>>
+    + lecturer_id : INT <<FK>>
+    + student_id : INT <<FK>>
+    + phone : VARCHAR(20)
+    + message : TEXT
+    + type : ENUM
+    + status : ENUM
+    + retry_count : INT
+    + scheduled_at : DATETIME
+  }
+}
+
+' ════════════════════════════
+'  QUAN HE
+' ════════════════════════════
+
+accounts "1" *-- "0..1"  admin
+accounts "1" *-- "0..*"  sinh_vien
+accounts "1" *-- "0..*"  giang_vien
+accounts "1" *-- "0..*"  doanh_nghiep
+accounts "1" --> "0..*"  internship_workflow_history
+accounts "1" --> "0..*"  notifications
+accounts "1" --> "0..*"  dang_ky_thuc_tap
+
+sinh_vien   "1" --> "0..*" phan_cong_thuc_tap
+sinh_vien   "1" --> "0..*" dang_ky_thuc_tap
+sinh_vien   "1" --> "0..*" sinh_vien_huong_dan
+sinh_vien   "1" --> "0..*" bao_cao_da_nop
+sinh_vien   "1" --> "0..*" notifications
+sinh_vien   "1" --> "0..*" zalo_message_queue
+
+giang_vien  "1" --> "0..*" phan_cong_thuc_tap
+giang_vien  "1" --> "0..*" sinh_vien_huong_dan
+giang_vien  "1" --> "0..*" dot_nop_bao_cao
+giang_vien  "1" --> "0..*" zalo_message_queue
+
+doanh_nghiep "1" --> "0..*" phan_cong_thuc_tap
+
+dot_thuc_tap "1" *-- "0..*" phan_cong_thuc_tap
+dot_thuc_tap "1" *-- "0..*" internship_timeline_milestones
+dot_thuc_tap "1" --> "0..*" bao_cao_da_nop
+
+phan_cong_thuc_tap "1" *-- "0..*" bao_cao
+
+dot_nop_bao_cao "1" *-- "0..*" bai_nop_cua_sinh_vien
+dot_nop_bao_cao "1" *-- "0..*" diem_theo_dot_nop
+
+@enduml

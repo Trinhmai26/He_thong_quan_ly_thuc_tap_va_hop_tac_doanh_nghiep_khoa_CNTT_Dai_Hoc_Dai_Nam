@@ -1,0 +1,106 @@
+@startuml UC08
+
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam linetype polyline
+skinparam nodesep 55
+skinparam ranksep 70
+skinparam usecase {
+  BackgroundColor #FFFDE7
+  BorderColor #E65100
+  FontSize 11
+}
+skinparam actor {
+  BackgroundColor #FAFAFA
+  BorderColor #1A237E
+  FontStyle bold
+  FontSize 12
+}
+skinparam rectangle {
+  BackgroundColor #F5F7FA
+  BorderColor #455A64
+  BorderThickness 2
+  FontStyle bold
+}
+
+title
+  <b>UC08 – Dashboard & Thong ke</b>
+  He thong Quan ly Thuc tap – Khoa CNTT DH Dai Nam
+end title
+
+' Actor generalization: moi actor co view rieng biet
+actor "Nguoi su dung"  as User  #E8EAF6
+actor "Admin"          as Admin #FFD0A0
+actor "Giang vien"     as GV    #BBDEFB
+actor "Sinh vien"      as SV    #C8E6C9
+actor "Doanh nghiep"   as DN    #FFF9C4
+
+Admin -|> User
+GV    -|> User
+SV    -|> User
+DN    -|> User
+
+Admin -[hidden]down-> GV
+GV    -[hidden]down-> SV
+SV    -[hidden]down-> DN
+
+rectangle "Dashboard & Thong ke" {
+
+  package "Dashboard Chung" as P0 {
+    (Xem Dashboard ca nhan)        as UC00
+  }
+
+  package "Dashboard Admin" as P1 {
+    (Xem tong quan he thong)       as UC01
+    (Thong ke phan cong & BC)      as UC02
+    (Xem / Xuat SV theo dot TT)    as UC03
+  }
+
+  package "Dashboard Giang vien" as P2 {
+    (Xem ds SV duoc phan cong)     as UC04
+    (Theo doi tien do nop BC)      as UC05
+    (Xem thong ke diem so lop)     as UC06
+  }
+
+  package "Dashboard Sinh vien" as P3 {
+    (Xem tien do thuc tap ca nhan) as UC07
+    (Xem lich su nop bao cao)      as UC08
+    (Xem diem so tong ket)         as UC09
+  }
+
+  package "Dashboard DN" as P4 {
+    (Xem ds thuc tap sinh)         as UC10
+    (Xem trang thai BC cua TTS)    as UC11
+    (Xem thong ke TTS theo dot)    as UC12
+  }
+}
+
+' Chung cho tat ca
+User  --> UC00
+
+' Rieng Admin
+Admin --> UC01
+Admin --> UC02
+Admin --> UC03
+
+' Rieng GV
+GV --> UC04
+GV --> UC05
+GV --> UC06
+
+' Rieng SV
+SV --> UC07
+SV --> UC08
+SV --> UC09
+
+' Rieng DN
+DN --> UC10
+DN --> UC11
+DN --> UC12
+
+UC02 ..> UC01 : <<extend>>
+UC03 ..> UC01 : <<extend>>
+UC05 ..> UC04 : <<extend>>
+
+@enduml

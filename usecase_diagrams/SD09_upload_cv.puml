@@ -1,0 +1,25 @@
+@startuml SD09
+title SD09 – Upload & Xac thuc CV (Sinh vien)
+
+actor "Sinh vien" as SV
+participant "Frontend" as FE
+participant "Backend" as BE
+participant "Python CV" as PY
+database "Database" as DB
+
+SV -> FE : Chon file CV (PDF, toi da 5MB)
+FE -> BE : POST /api/sinh-vien/upload-cv
+BE -> BE : Multer luu file /uploads/cv/
+BE -> DB : Lay ho_ten, ma_sinh_vien, email
+BE -> PY : Xac thuc: ten/ma/email SV co trong CV?
+
+alt CV khong hop le
+  PY --> BE : is_match = false
+  BE --> FE : 400 "CV khong phai cua ban"
+else CV hop le
+  PY --> BE : is_match = true
+  BE -> DB : Luu cv_path vao sinh_vien
+  BE --> FE : 200 Thanh cong
+  FE --> SV : "Upload CV thanh cong"
+end
+@enduml

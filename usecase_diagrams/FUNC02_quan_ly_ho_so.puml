@@ -1,0 +1,74 @@
+@startwbs FUNC02
+
+<style>
+wbsDiagram {
+  LineColor #455A64
+  BackgroundColor #FAFAFA
+  .root {
+    BackgroundColor #37474F
+    FontColor white
+    FontStyle bold
+  }
+  .module {
+    BackgroundColor #2E7D32
+    FontColor white
+    FontStyle bold
+  }
+  .group {
+    BackgroundColor #E8F5E9
+    FontColor #1B5E20
+    FontStyle bold
+  }
+  .func {
+    BackgroundColor #FFFDE7
+    FontColor #333
+  }
+}
+</style>
+
+title FUNC02 – Phan ra chuc nang: Quan ly Ho so Nguoi dung & Doanh nghiep
+
+* He thong Quan ly Thuc tap <<root>>
+** 2. Quan ly Ho so Nguoi dung & Doanh nghiep <<module>>
+*** 2.1. Quan ly Sinh vien (Admin) <<group>>
+**** Xem danh sach co phan trang, loc <<func>>
+**** Tim kiem theo ten / ma SV <<func>>
+**** Xem chi tiet ho so SV <<func>>
+**** Them SV moi (nhap tay) <<func>>
+**** Cap nhat thong tin SV <<func>>
+**** Xoa SV <<func>>
+**** Import danh sach SV tu file Excel <<func>>
+*** - Validate du lieu Excel <<func>>
+*** - Kiem tra trung lap ma SV <<func>>
+*** - Tao tai khoan tu dong <<func>>
+**** Xuat danh sach SV ra Excel <<func>>
+**** Phan cong giang vien huong dan <<func>>
+*** 2.2. Quan ly Giang vien (Admin) <<group>>
+**** Xem / Tim kiem giang vien <<func>>
+**** Them giang vien moi <<func>>
+**** Cap nhat ho ten, bo mon, hoc vi <<func>>
+**** Xoa giang vien <<func>>
+**** Import GV tu Excel <<func>>
+**** Xuat danh sach GV ra Excel <<func>>
+*** 2.3. Quan ly Doanh nghiep (Admin) <<group>>
+**** Xem / Tim kiem doanh nghiep <<func>>
+**** Xem chi tiet ho so DN <<func>>
+**** Cap nhat thong tin DN <<func>>
+**** Xoa doanh nghiep <<func>>
+**** Duyet dang ky DN <<func>>
+**** Tu choi dang ky DN (kem ly do) <<func>>
+**** Import / Xuat danh sach DN <<func>>
+*** 2.4. Ho so Sinh vien (Tu quan ly) <<group>>
+**** Xem ho so ca nhan <<func>>
+**** Cap nhat thong tin ca nhan <<func>>
+**** Upload CV - PDF toi da 5MB <<func>>
+*** - Xac thuc ten / ma SV trong CV <<func>>
+*** - Phan tich CV tu dong (AI) <<func>>
+**** Xoa CV <<func>>
+*** 2.5. Ho so Doanh nghiep (Tu quan ly) <<group>>
+**** Dang ky tai khoan doanh nghiep <<func>>
+**** Cap nhat ten cong ty, dia chi <<func>>
+**** Cap nhat linh vuc & quy mo <<func>>
+**** Cap nhat thong tin nguoi lien he <<func>>
+
+@endwbs

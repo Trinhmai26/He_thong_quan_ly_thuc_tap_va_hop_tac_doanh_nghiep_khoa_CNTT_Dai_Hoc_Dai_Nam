@@ -1,0 +1,23 @@
+@startuml SD11
+title SD11 – Lien ket tai khoan Zalo (SV / GV)
+
+actor "Nguoi dung" as U
+participant "Zalo App" as ZALO
+participant "Zalo OA" as OA
+participant "Backend" as BE
+database "Database" as DB
+
+U -> ZALO : Theo doi OA Zalo Khoa CNTT
+ZALO -> OA : Su kien: follow
+OA -> BE : POST /api/zalo/webhook { event: follow }
+BE -> OA : Gui tin nhan:\n"Nhan tin ma SV/GV de lien ket"
+OA --> U : Tin nhan chao
+
+U -> ZALO : Nhan tin ma cua minh (vd: 1771020001)
+ZALO -> OA : Su kien: user_send_text
+OA -> BE : POST /api/zalo/webhook { event: message, text }
+BE -> DB : Tim SV/GV theo ma
+BE -> DB : Luu zalo_user_id vao ban ghi
+BE -> OA : "Lien ket thanh cong! Chao [ten]"
+OA --> U : Xac nhan lien ket
+@enduml

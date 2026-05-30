@@ -600,6 +600,175 @@ class ZaloController {
   }
 
   /**
+   * POST /api/zalo/trigger-reminders
+   * Admin kích hoạt gửi nhắc hạn ngay lập tức — không cần chờ scheduled_at.
+   * 1. Quét đợt nộp sắp hết hạn (23–25h) và queue tin mới nếu chưa có.
+   * 2. Reset scheduled_at = NOW() cho tất cả tin deadline_24h_reminder đang pending.
+   */
+  static async triggerReminders(req, res) {
+    try {
+      const isAdmin = req.user?.role === 'admin';
+
+      // Xác định giới hạn student_id nếu là GV (chỉ reset tin của SV mình)
+      let studentIdFilter = '';
+      const filterParams = [];
+      if (!isAdmin) {
+        const gvRows = await db.query(
+          `SELECT sv.id FROM sinh_vien sv
+           INNER JOIN giang_vien gv ON LOWER(TRIM(gv.ho_ten)) = LOWER(TRIM(sv.giang_vien_huong_dan))
+           WHERE gv.account_id = ?`,
+          [req.user.id]
+        );
+        if (!gvRows.length) {
+          return res.json({ success: true, message: 'Không có sinh viên nào thuộc giảng viên này.', data: { reset_failed: 0, reset_pending_scheduled: 0 } });
+        }
+        const ids = gvRows.map(r => r.id);
+        studentIdFilter = `AND student_id IN (${ids.map(() => '?').join(',')})`;
+        filterParams.push(...ids);
+      }
+
+      if (isAdmin) {
+        const { remindStudentsBeforeDeadline } = require('../services/deadlineReminder');
+        await remindStudentsBeforeDeadline();
+      }
+
+      const resetFailed = await db.query(
+        `UPDATE zalo_message_queue
+         SET status = 'pending', retry_count = 0, failed_reason = NULL,
+             scheduled_at = NOW(), updated_at = NOW()
+         WHERE status IN ('failed', 'cancelled') ${studentIdFilter}`,
+        filterParams
+      );
+
+      const resetPending = await db.query(
+        `UPDATE zalo_message_queue
+         SET scheduled_at = NOW(), updated_at = NOW()
+         WHERE status = 'pending' AND scheduled_at > NOW() ${studentIdFilter}`,
+        filterParams
+      );
+
+      return res.json({
+        success: true,
+        message: `Đã reset ${resetFailed.affectedRows} tin lỗi và ${resetPending.affectedRows} tin đang chờ → gửi ngay trong 30 giây.`,
+        data: { reset_failed: resetFailed.affectedRows, reset_pending_scheduled: resetPending.affectedRows },
+      });
+    } catch (err) {
+      console.error('[triggerReminders] Error:', err.message);
+      return res.status(500).json({ success: false, message: `Lỗi server: ${err.message}` });
+    }
+  }
+
+  /**
+   * GET /api/zalo/lecturers - Danh sách giảng viên kèm SĐT (chỉ admin)
+   */
+  static async getLecturerZaloList(req, res) {
+    try {
+      const rows = await db.query(
+        `SELECT id, ma_giang_vien, ho_ten, khoa, bo_mon, so_dien_thoai, zalo_user_id
+         FROM giang_vien ORDER BY ho_ten`
+      );
+      return res.json({
+        success: true,
+        data: rows.map(r => ({
+          id: r.id,
+          ma_giang_vien: r.ma_giang_vien,
+          ho_ten: r.ho_ten,
+          khoa: r.khoa,
+          bo_mon: r.bo_mon,
+          so_dien_thoai: r.so_dien_thoai,
+          zalo_linked: !!r.zalo_user_id,
+        }))
+      });
+    } catch (err) {
+      return res.status(500).json({ success: false, message: 'Lỗi server' });
+    }
+  }
+
+  /**
+   * POST /api/zalo/send-to-lecturers
+   * Admin gửi Zalo riêng từng giảng viên qua SĐT.
+   * Body: { lecturerIds: [1,2,3], title: "...", message: "..." }
+   */
+  static async sendToLecturers(req, res) {
+    const { lecturerIds, title = '', message } = req.body || {};
+
+    if (!Array.isArray(lecturerIds) || lecturerIds.length === 0)
+      return res.status(400).json({ success: false, message: 'lecturerIds là bắt buộc và không được rỗng' });
+    if (!message?.trim())
+      return res.status(400).json({ success: false, message: 'Nội dung tin nhắn không được trống' });
+    if (lecturerIds.length > 200)
+      return res.status(400).json({ success: false, message: 'Tối đa 200 giảng viên mỗi lần gửi' });
+
+    const flaskBase = ZaloController._localUrl();
+    const senderLabel = 'Ban Quản lý Khoa CNTT';
+
+    try {
+      const placeholders = lecturerIds.map(() => '?').join(',');
+      const lecturers = await db.query(
+        `SELECT id, ho_ten, ma_giang_vien, so_dien_thoai FROM giang_vien WHERE id IN (${placeholders})`,
+        lecturerIds
+      );
+
+      const results = [];
+      const titleText = title.trim();
+      const bodyText  = message.trim();
+
+      for (const gv of lecturers) {
+        const phone = (gv.so_dien_thoai || '').trim();
+
+        if (!phone) {
+          results.push({
+            id: gv.id, name: gv.ho_ten, ma_giang_vien: gv.ma_giang_vien, phone: '',
+            success: false, reason: 'Giảng viên chưa có số điện thoại',
+          });
+          continue;
+        }
+
+        const greeting  = gv.ho_ten ? `Kính gửi ${gv.ho_ten},\n\n` : '';
+        const signature = `\n\nTrân trọng,\n${senderLabel}\nKhoa CNTT - ĐH Đại Nam`;
+        const fullMessage = titleText
+          ? `📢 ${titleText}\n\n${greeting}${bodyText}${signature}`
+          : `${greeting}${bodyText}${signature}`;
+
+        try {
+          const resp = await axios.post(
+            `${flaskBase}/send-message`,
+            { phone, message: fullMessage },
+            { timeout: 30000, validateStatus: () => true }
+          );
+
+          const ok     = resp.data?.success === true;
+          const reason = resp.data?.message || (ok ? 'Đã gửi thành công' : 'Zalo không gửi được');
+
+          results.push({
+            id: gv.id, name: gv.ho_ten, ma_giang_vien: gv.ma_giang_vien, phone,
+            success: ok, reason,
+          });
+        } catch (sendErr) {
+          const errMsg = sendErr.code === 'ECONNREFUSED'
+            ? 'Zalo Local Service chưa khởi động'
+            : `Lỗi kết nối Flask: ${sendErr.message}`;
+          results.push({
+            id: gv.id, name: gv.ho_ten, ma_giang_vien: gv.ma_giang_vien, phone,
+            success: false, reason: errMsg,
+          });
+        }
+
+        if (lecturers.indexOf(gv) < lecturers.length - 1)
+          await new Promise(resolve => setTimeout(resolve, 1200));
+      }
+
+      const sent   = results.filter(r => r.success).length;
+      const failed = results.filter(r => !r.success).length;
+
+      return res.json({ success: true, data: { sent, failed, total: results.length, results } });
+    } catch (err) {
+      console.error('[sendToLecturers] Error:', err.message);
+      return res.status(500).json({ success: false, message: `Lỗi server: ${err.message}` });
+    }
+  }
+
+  /**
    * POST /api/zalo/send-to-my-students
    * Giảng viên gửi Zalo thủ công cho sinh viên CỦA MÌNH.
    * lecturer_id lấy từ JWT — không nhận từ frontend.
@@ -619,22 +788,22 @@ class ZaloController {
     try {
       // Xác định giảng viên từ JWT
       const gvRows = await db.query(
-        'SELECT id, ma_giang_vien FROM giang_vien WHERE account_id = ? LIMIT 1',
+        'SELECT id, ma_giang_vien, ho_ten FROM giang_vien WHERE account_id = ? LIMIT 1',
         [req.user.id]
       );
       if (!gvRows.length)
         return res.status(403).json({ success: false, message: 'Không tìm thấy thông tin giảng viên' });
 
-      const { id: lecturerId, ma_giang_vien } = gvRows[0];
+      const { id: lecturerId, ma_giang_vien, ho_ten: gvHoTen } = gvRows[0];
 
-      // Chỉ lấy SV thuộc giảng viên này trong danh sách studentIds
+      // Chỉ lấy SV thuộc giảng viên này (giang_vien_huong_dan lưu ho_ten, không phải ma_giang_vien)
       const placeholders = studentIds.map(() => '?').join(',');
       const students = await db.query(
         `SELECT id, ho_ten, ma_sinh_vien, so_dien_thoai
          FROM sinh_vien
          WHERE id IN (${placeholders})
-           AND giang_vien_huong_dan = ?`,
-        [...studentIds, ma_giang_vien]
+           AND LOWER(TRIM(giang_vien_huong_dan)) = LOWER(TRIM(?))`,
+        [...studentIds, gvHoTen]
       );
 
       const rejected = studentIds.length - students.length;
@@ -644,28 +813,43 @@ class ZaloController {
       if (!students.length)
         return res.status(403).json({ success: false, message: 'Không có sinh viên nào thuộc giảng viên này' });
 
-      const { enqueueMessage } = require('../services/zaloQueue');
-      let queued = 0, skipped = 0;
+      const flaskBase = ZaloController._localUrl();
+      const gvLabel   = `GV. ${gvHoTen}`;
+      const titleText = (title || '').trim() || 'Thông báo từ giảng viên';
+      const bodyText  = message.trim();
+      const results   = [];
+      let sent = 0, skipped = 0;
 
       for (const sv of students) {
-        if (!sv.so_dien_thoai?.trim()) { skipped++; continue; }
-        await enqueueMessage({
-          lecturerId,
-          studentId: sv.id,
-          phone:     sv.so_dien_thoai,
-          title:     title.trim() || 'Thông báo từ giảng viên',
-          message:   message.trim(),
-          type:      'manual',
-          relatedId: null,
-          priority:  5,
-        });
-        queued++;
+        const phone = (sv.so_dien_thoai || '').trim();
+        if (!phone) { skipped++; results.push({ id: sv.id, ho_ten: sv.ho_ten, success: false, reason: 'Không có SĐT' }); continue; }
+
+        const greeting    = `Kính gửi sinh viên ${sv.ho_ten},\n\n`;
+        const signature   = `\n\nTrân trọng,\n${gvLabel}\nKhoa CNTT - ĐH Đại Nam`;
+        const fullMessage = `📢 ${titleText}\n\n${greeting}${bodyText}${signature}`;
+
+        try {
+          const resp = await axios.post(
+            `${flaskBase}/send-message`,
+            { phone, message: fullMessage },
+            { timeout: 30000, validateStatus: () => true }
+          );
+          const ok     = resp.data?.success === true;
+          const reason = resp.data?.message || (ok ? 'Đã gửi' : 'Gửi thất bại');
+          results.push({ id: sv.id, ho_ten: sv.ho_ten, phone, success: ok, reason });
+          if (ok) sent++;
+        } catch (e) {
+          results.push({ id: sv.id, ho_ten: sv.ho_ten, phone, success: false, reason: e.message });
+        }
+
+        if (students.indexOf(sv) < students.length - 1)
+          await new Promise(r => setTimeout(r, 1200));
       }
 
       return res.json({
         success: true,
-        message: `Đã đưa ${queued} tin nhắn vào hàng đợi. Worker sẽ gửi lần lượt.`,
-        data: { queued, skipped_no_phone: skipped, rejected_not_mine: rejected },
+        message: `Đã gửi ${sent}/${students.length} tin nhắn thành công.`,
+        data: { sent, skipped_no_phone: skipped, rejected_not_mine: rejected, results },
       });
     } catch (err) {
       console.error('[sendToMyStudents] Error:', err.message);

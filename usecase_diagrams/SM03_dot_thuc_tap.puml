@@ -1,0 +1,14 @@
+@startuml SM03
+title SM03 – Trang thai Dot Thuc tap
+
+[*]          --> SAP_MO      : Admin tao dot moi
+SAP_MO       --> DANG_DIEN_RA : Admin mo dang ky
+DANG_DIEN_RA --> KET_THUC    : Het thoi han / Admin dong dot
+SAP_MO       --> [*]         : Admin xoa dot
+KET_THUC     --> [*]
+
+SAP_MO       : Cho mo dang ky\nSV chua the dang ky
+DANG_DIEN_RA : Nhan dang ky SV\nAdmin phan cong\nSV dang thuc tap
+KET_THUC     : Khong nhan dang ky moi\nTong ket ket qua
+
+@enduml

@@ -19,10 +19,7 @@ class ProfileController {
       // Lấy thông tin profile theo role
       switch (userRole) {
         case 'sinh-vien':
-          const sinhvienResult = await SinhVien.findByAccountId(userId);
-          if (sinhvienResult.success) {
-            profileData = sinhvienResult.data;
-          }
+          profileData = await SinhVien.findByAccountId(userId);
           break;
           
         case 'giang-vien':
@@ -55,8 +52,8 @@ class ProfileController {
       
       // Lấy thông tin account cơ bản
       const accountQuery = `
-        SELECT user_id, role, is_active, created_at, updated_at 
-        FROM accounts 
+        SELECT user_id, role, is_active, created_at, updated_at, avatar_url
+        FROM accounts
         WHERE id = ?
       `;
       const accounts = await connection.query(accountQuery, [userId]);
@@ -78,9 +75,10 @@ class ProfileController {
       }
 
       // Always merge email from accounts table into profileData
-      const accountEmailRows = await connection.query('SELECT email FROM accounts WHERE id = ? LIMIT 1', [userId]);
+      const accountEmailRows = await connection.query('SELECT email, avatar_url FROM accounts WHERE id = ? LIMIT 1', [userId]);
       if (accountEmailRows && accountEmailRows.length > 0 && profileData) {
-        profileData.email = profileData.email || accountEmailRows[0].email || '';
+        profileData.email      = profileData.email      || accountEmailRows[0].email      || '';
+        profileData.avatar_url = profileData.avatar_url || accountEmailRows[0].avatar_url || null;
       }
       
       res.json({

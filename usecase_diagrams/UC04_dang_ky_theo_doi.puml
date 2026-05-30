@@ -1,0 +1,94 @@
+@startuml UC04
+
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam linetype polyline
+skinparam nodesep 55
+skinparam ranksep 70
+skinparam usecase {
+  BackgroundColor #FFFDE7
+  BorderColor #E65100
+  FontSize 11
+}
+skinparam actor {
+  BackgroundColor #FAFAFA
+  BorderColor #1A237E
+  FontStyle bold
+  FontSize 12
+}
+skinparam rectangle {
+  BackgroundColor #F5F7FA
+  BorderColor #455A64
+  BorderThickness 2
+  FontStyle bold
+}
+
+title
+  <b>UC04 – Dang ky & Theo doi Thuc tap</b>
+  He thong Quan ly Thuc tap – Khoa CNTT DH Dai Nam
+end title
+
+actor "Admin"        as Admin #FFD0A0
+actor "Giang vien"   as GV    #BBDEFB
+actor "Sinh vien"    as SV    #C8E6C9
+actor "Doanh nghiep" as DN    #FFF9C4
+
+Admin -[hidden]down-> GV
+GV    -[hidden]down-> SV
+SV    -[hidden]down-> DN
+
+rectangle "Dang ky & Theo doi Thuc tap" {
+
+  package "Xu ly Don Dang ky [Admin]" as P1 {
+    (Xem / Loc danh sach don)      as UC01
+    (Duyet don dang ky SV)         as UC02
+    (Tu choi don dang ky SV)       as UC03
+  }
+
+  package "Theo doi Tien do [GV]" as P2 {
+    (Xem SV duoc phan cong)        as UC04
+    (Theo doi tien do tung SV)     as UC05
+  }
+
+  package "Dang ky Thuc tap [SV]" as P3 {
+    (Xem dot TT dang mo)           as UC06
+    (Khai bao nguyen vong & vi tri) as UC07
+    (Upload CV & kiem tra dieu kien) as UC08
+    (Nop don dang ky)              as UC09
+    (Xem trang thai / Huy don)     as UC10
+  }
+
+  package "Dang ky nhan TTS [DN]" as P4 {
+    (Dang ky nhan thuc tap sinh)   as UC11
+    (Cap nhat / Huy dang ky)       as UC12
+    (Xem SV duoc phan cong)        as UC13
+  }
+}
+
+Admin --> UC01
+Admin --> UC02
+Admin --> UC03
+Admin --> UC10
+
+GV --> UC04
+GV --> UC05
+GV --> UC10
+
+SV --> UC06
+SV --> UC07
+SV --> UC08
+SV --> UC09
+SV --> UC10
+
+DN --> UC11
+DN --> UC12
+DN --> UC13
+DN --> UC10
+
+UC09 ..> UC08 : <<include>>
+UC09 ..> UC07 : <<include>>
+UC02 ..> UC01 : <<include>>
+UC03 ..> UC01 : <<include>>
+
+@enduml

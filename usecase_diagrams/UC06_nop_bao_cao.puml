@@ -1,0 +1,90 @@
+@startuml UC06
+
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam linetype polyline
+skinparam nodesep 55
+skinparam ranksep 70
+skinparam usecase {
+  BackgroundColor #FFFDE7
+  BorderColor #E65100
+  FontSize 11
+}
+skinparam actor {
+  BackgroundColor #FAFAFA
+  BorderColor #1A237E
+  FontStyle bold
+  FontSize 12
+}
+skinparam rectangle {
+  BackgroundColor #F5F7FA
+  BorderColor #455A64
+  BorderThickness 2
+  FontStyle bold
+}
+
+title
+  <b>UC06 – Nop Bao cao Thuc tap</b>
+  He thong Quan ly Thuc tap – Khoa CNTT DH Dai Nam
+end title
+
+actor "Admin"        as Admin #FFD0A0
+actor "Giang vien"   as GV    #BBDEFB
+actor "Sinh vien"    as SV    #C8E6C9
+actor "Doanh nghiep" as DN    #FFF9C4
+
+Admin -[hidden]down-> GV
+GV    -[hidden]down-> SV
+SV    -[hidden]down-> DN
+
+rectangle "Nop Bao cao Thuc tap" {
+
+  package "Giam sat Bao cao [Admin]" as P1 {
+    (Xem tat ca bao cao he thong)  as UC01
+    (Thong ke ti le nop BC)        as UC02
+    (Xem ds SV chua nop)           as UC03
+  }
+
+  package "Theo doi BC SV [GV]" as P2 {
+    (Xem BC tuan cua SV HD)        as UC04
+    (Nhac nho SV nop BC)           as UC05
+  }
+
+  package "Nop Bao cao [Sinh vien]" as P3 {
+    (Nop bao cao tuan moi)         as UC06
+    (Dinh kem file BC tuan)        as UC07
+    (Cap nhat / Xem BC tuan)       as UC08
+    (Nop bao cao cuoi ky)          as UC09
+    (Upload file BC cuoi ky)       as UC10
+    (Xem diem & nhan xet)          as UC11
+  }
+
+  package "Xem BC TTS [DN]" as P4 {
+    (Xem BC cuoi ky cua TTS)       as UC12
+    (Xem tien do nop BC TTS)       as UC13
+  }
+}
+
+Admin --> UC01
+Admin --> UC02
+Admin --> UC03
+
+GV --> UC04
+GV --> UC05
+
+SV --> UC06
+SV --> UC07
+SV --> UC08
+SV --> UC09
+SV --> UC10
+SV --> UC11
+
+DN --> UC12
+DN --> UC13
+
+UC06 ..> UC07 : <<extend>>
+UC09 ..> UC10 : <<include>>
+UC11 ..> UC08 : <<extend>>
+
+@enduml

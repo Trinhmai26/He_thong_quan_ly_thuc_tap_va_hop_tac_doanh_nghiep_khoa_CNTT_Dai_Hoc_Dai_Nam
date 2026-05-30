@@ -1,0 +1,85 @@
+@startuml
+
+left to right direction
+
+skinparam actorStyle awesome
+skinparam nodesep 60
+skinparam ranksep 80
+
+skinparam usecase {
+  BackgroundColor #FFFDE7
+  BorderColor     #E65100
+  FontSize        12
+}
+skinparam actor {
+  BackgroundColor #FAFAFA
+  BorderColor     #1A237E
+  FontStyle       bold
+  FontSize        13
+}
+skinparam rectangle {
+  BackgroundColor #F5F7FA
+  BorderColor     #455A64
+  BorderThickness 2
+  FontStyle       bold
+  FontSize        14
+}
+
+title
+  <b>Use Case Tổng quát</b>
+  Hệ thống Quản lý Thực tập & Hợp tác Doanh nghiệp
+  Khoa CNTT – Đại học Đại Nam
+end title
+
+' ── LEFT: vai trò quản lý ──────────────
+actor "Quản trị viên\n(Admin)"  as Admin  #FFD0A0
+actor "Giảng viên"              as GV     #BBDEFB
+
+' ── SYSTEM ────────────────────────────
+rectangle "Hệ thống Quản lý Thực tập" {
+  (Xác thực &\nQuản lý tài khoản)       as UC1
+  (Quản lý Sinh viên,\nGiảng viên, DN)  as UC2
+  (Tạo đợt &\nPhân công thực tập)       as UC3
+  (Đăng ký &\nTheo dõi thực tập)        as UC4
+  (Tuyển dụng &\nPhỏng vấn)             as UC5
+  (Nộp báo cáo\ntuần & cuối kỳ)         as UC6
+  (Chấm điểm &\nĐánh giá)              as UC7
+  (Thống kê &\nDashboard)               as UC8
+  (Thông báo\nEmail / Zalo)             as UC9
+}
+
+' ── RIGHT: vai trò tham gia ───────────
+actor "Sinh viên"    as SV  #C8E6C9
+actor "Doanh nghiệp" as DN  #FFF9C4
+
+' ── Kết nối Admin ─────────────────────
+Admin --> UC1
+Admin --> UC2
+Admin --> UC3
+Admin --> UC5
+Admin --> UC8
+
+' ── Kết nối Giảng viên ────────────────
+GV --> UC1
+GV --> UC4
+GV --> UC7
+GV --> UC8
+GV --> UC9
+
+' ── Kết nối Sinh viên (phải → trái) ──
+UC1 --> SV
+UC4 --> SV
+UC6 --> SV
+UC7 --> SV
+UC8 --> SV
+UC9 --> SV
+
+' ── Kết nối Doanh nghiệp (phải → trái)
+UC1 --> DN
+UC4 --> DN
+UC5 --> DN
+UC7 --> DN
+UC8 --> DN
+UC9 --> DN
+
+@enduml

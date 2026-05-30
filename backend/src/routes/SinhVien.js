@@ -1153,6 +1153,38 @@ router.post('/register-internship', authenticateToken, upload.single('cv_file'),
       });
     }
 
+    // ── Chặn đăng ký nếu đã được duyệt ──────────────────────────────────────
+    try {
+      const latestRegRows = await connection.query(
+        `SELECT trang_thai, workflow_status, workflow_status_v2
+         FROM dang_ky_thuc_tap_sinh_vien
+         WHERE sinh_vien_id = ?
+         ORDER BY id DESC LIMIT 1`,
+        [student.id]
+      );
+      if (latestRegRows.length > 0) {
+        const reg = latestRegRows[0];
+        const isRejected =
+          reg.trang_thai === 'tu-choi' ||
+          reg.workflow_status === 'TU_CHOI' ||
+          ['REJECTED', 'FAIL'].includes(reg.workflow_status_v2);
+
+        const isApproved = !isRejected && (
+          reg.trang_thai === 'da-duyet' ||
+          ['DA_DUYET', 'DA_PHAN_CONG', 'DANG_THUC_TAP', 'CHO_NOP_BAO_CAO_CUOI_KY', 'CHO_CHAM_DIEM', 'HOAN_THANH'].includes(reg.workflow_status) ||
+          ['APPROVED', 'PASS', 'INTERVIEW_SCHEDULED'].includes(reg.workflow_status_v2)
+        );
+
+        if (isApproved) {
+          return res.status(409).json({
+            success: false,
+            message: 'Bạn đã đăng ký thực tập và được duyệt. Không thể đăng ký lại. Vui lòng liên hệ quản trị viên nếu cần thay đổi.'
+          });
+        }
+      }
+    } catch (_) { /* bảng chưa tồn tại — bỏ qua */ }
+    // ─────────────────────────────────────────────────────────────────────────
+
     const eligibility = evaluateInternshipEligibility(student);
     if (!eligibility.eligible) {
       return res.status(400).json({
@@ -1316,10 +1348,26 @@ router.get('/my-registration', authenticateToken, async (req, res) => {
       });
     }
 
+    // Lấy trạng thái đăng ký thực tập mới nhất từ dang_ky_thuc_tap_sinh_vien
+    let latestRegistration = null;
+    try {
+      const regRows = await connection.query(
+        `SELECT id, trang_thai, workflow_status, workflow_status_v2, ly_do_tu_choi, created_at, updated_at
+         FROM dang_ky_thuc_tap_sinh_vien
+         WHERE sinh_vien_id = ?
+         ORDER BY id DESC LIMIT 1`,
+        [student.id]
+      );
+      if (regRows.length > 0) latestRegistration = regRows[0];
+    } catch (_) { /* bảng chưa tồn tại hoặc lỗi không quan trọng */ }
+
     res.json({
       success: true,
       message: 'Lấy thông tin đăng ký thành công',
-      data: student
+      data: {
+        ...student,
+        latest_registration: latestRegistration
+      }
     });
   } catch (error) {
     console.error('Error in GET /api/sinh-vien/my-registration:', error);

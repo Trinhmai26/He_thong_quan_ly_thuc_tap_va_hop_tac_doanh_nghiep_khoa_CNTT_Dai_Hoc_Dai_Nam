@@ -1,5 +1,48 @@
 const bcrypt = require('bcryptjs');
+const nodemailer = require('nodemailer');
 const connection = require('../database/connection');
+
+// ── Nodemailer transporter ────────────────────────────────────────────────────
+function createTransporter() {
+  return nodemailer.createTransport({
+    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.EMAIL_PORT || '587'),
+    secure: false,
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS
+    },
+    tls: { rejectUnauthorized: false }
+  });
+}
+
+async function sendResetEmail(toEmail, resetCode, recipientName) {
+  const transporter = createTransporter();
+  const senderName = 'Khoa CNTT - ĐH Đại Nam';
+  const senderEmail = process.env.EMAIL_USER;
+
+  await transporter.sendMail({
+    from: `"${senderName}" <${senderEmail}>`,
+    to: toEmail,
+    subject: '[Hệ thống Quản lý Thực tập] Mã xác minh đặt lại mật khẩu',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 12px;">
+        <h2 style="color: #1d4ed8; margin-bottom: 8px;">Đặt lại mật khẩu</h2>
+        <p style="color: #374151;">Xin chào <strong>${recipientName || 'bạn'}</strong>,</p>
+        <p style="color: #374151;">Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn.</p>
+        <p style="color: #374151;">Mã xác minh của bạn là:</p>
+        <div style="text-align: center; margin: 24px 0;">
+          <span style="display: inline-block; font-size: 36px; font-weight: bold; letter-spacing: 10px; color: #1d4ed8; background: #eff6ff; padding: 16px 32px; border-radius: 8px; border: 2px dashed #93c5fd;">
+            ${resetCode}
+          </span>
+        </div>
+        <p style="color: #6b7280; font-size: 14px;">Mã này có hiệu lực trong <strong>10 phút</strong>. Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này.</p>
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+        <p style="color: #9ca3af; font-size: 12px; text-align: center;">Hệ thống Quản lý Thực tập - Khoa CNTT - ĐH Đại Nam</p>
+      </div>
+    `
+  });
+}
 
 class PasswordController {
   
@@ -222,45 +265,56 @@ class PasswordController {
         foundAccount = sinhVienAccounts[0];
       }
       
-      // Tìm trong bảng giảng viên
+      // Tìm trong bảng giảng viên (email_ca_nhan)
       if (!foundAccount) {
         const giangVienAccounts = await connection.query(`
-          SELECT a.id, a.user_id, a.role, gv.email, gv.ho_ten
-          FROM accounts a 
-          INNER JOIN giang_vien gv ON a.id = gv.account_id 
-          WHERE gv.email = ? OR a.user_id = ?
-        `, [email, email]);
-        
+          SELECT a.id, a.user_id, a.role, gv.email_ca_nhan AS email, gv.ho_ten
+          FROM accounts a
+          INNER JOIN giang_vien gv ON a.id = gv.account_id
+          WHERE gv.email_ca_nhan = ? OR a.email = ? OR a.user_id = ?
+        `, [email, email, email]);
+
         if (giangVienAccounts && giangVienAccounts.length > 0) {
           foundAccount = giangVienAccounts[0];
         }
       }
-      
+
       // Tìm trong bảng doanh nghiệp
       if (!foundAccount) {
         const doanhNghiepAccounts = await connection.query(`
-          SELECT a.id, a.user_id, a.role, dn.email_cong_ty, dn.ten_cong_ty
-          FROM accounts a 
-          INNER JOIN doanh_nghiep dn ON a.id = dn.account_id 
-          WHERE dn.email_cong_ty = ? OR a.user_id = ?
-        `, [email, email]);
-        
+          SELECT a.id, a.user_id, a.role, dn.email_cong_ty AS email, dn.ten_cong_ty AS ho_ten
+          FROM accounts a
+          INNER JOIN doanh_nghiep dn ON a.id = dn.account_id
+          WHERE dn.email_cong_ty = ? OR a.email = ? OR a.user_id = ?
+        `, [email, email, email]);
+
         if (doanhNghiepAccounts && doanhNghiepAccounts.length > 0) {
           foundAccount = doanhNghiepAccounts[0];
         }
       }
-      
-      // Tìm trong bảng admin
+
+      // Tìm trong bảng admin (admin không có email riêng → dùng accounts.email)
       if (!foundAccount) {
         const adminAccounts = await connection.query(`
-          SELECT a.id, a.user_id, a.role, ad.email, ad.ho_ten
-          FROM accounts a 
-          INNER JOIN admin ad ON a.id = ad.account_id 
-          WHERE ad.email = ? OR a.user_id = ?
+          SELECT a.id, a.user_id, a.role, a.email, ad.full_name AS ho_ten
+          FROM accounts a
+          INNER JOIN admin ad ON a.id = ad.account_id
+          WHERE a.email = ? OR a.user_id = ?
         `, [email, email]);
-        
+
         if (adminAccounts && adminAccounts.length > 0) {
           foundAccount = adminAccounts[0];
+        }
+      }
+
+      // Tìm trực tiếp qua accounts.email (fallback)
+      if (!foundAccount) {
+        const directAccounts = await connection.query(
+          'SELECT id, user_id, role, email FROM accounts WHERE email = ? OR user_id = ?',
+          [email, email]
+        );
+        if (directAccounts && directAccounts.length > 0) {
+          foundAccount = directAccounts[0];
         }
       }
 
@@ -288,18 +342,24 @@ class PasswordController {
 
       console.log('✅ Reset code generated:', { email, code: resetCode });
 
-      // TODO: Gửi email thực tế (hiện tại chỉ log để test)
-      console.log(`📧 Email would be sent to ${email} with code: ${resetCode}`);
+      // Gửi email thật qua nodemailer
+      const recipientName = foundAccount.ho_ten || foundAccount.ten_cong_ty || '';
+      const toEmail = foundAccount.email_ca_nhan || foundAccount.email_cong_ty || email;
+      try {
+        await sendResetEmail(toEmail, resetCode, recipientName);
+        console.log(`📧 Reset email sent to ${toEmail}`);
+      } catch (emailErr) {
+        console.error('❌ Email send error:', emailErr.message);
+        return res.status(500).json({
+          success: false,
+          message: `Không thể gửi email xác minh: ${emailErr.message}. Vui lòng kiểm tra cấu hình email trong .env`
+        });
+      }
 
       res.json({
         success: true,
-        message: 'Mã xác minh đã được gửi đến email của bạn',
-        data: {
-          email,
-          expiresAt,
-          // TODO: Remove in production
-          debugCode: resetCode // Chỉ để test, xóa khi deploy thực tế
-        }
+        message: `Mã xác minh đã được gửi đến ${toEmail}`,
+        data: { email, expiresAt }
       });
 
     } catch (error) {
@@ -413,41 +473,52 @@ class PasswordController {
       if (!foundAccount) {
         const giangVienAccounts = await connection.query(`
           SELECT a.id, a.user_id, a.role
-          FROM accounts a 
-          INNER JOIN giang_vien gv ON a.id = gv.account_id 
-          WHERE gv.email = ? OR a.user_id = ?
-        `, [email, email]);
-        
+          FROM accounts a
+          INNER JOIN giang_vien gv ON a.id = gv.account_id
+          WHERE gv.email_ca_nhan = ? OR a.email = ? OR a.user_id = ?
+        `, [email, email, email]);
+
         if (giangVienAccounts && giangVienAccounts.length > 0) {
           foundAccount = giangVienAccounts[0];
         }
       }
-      
+
       // Tìm trong bảng doanh nghiệp
       if (!foundAccount) {
         const doanhNghiepAccounts = await connection.query(`
           SELECT a.id, a.user_id, a.role
-          FROM accounts a 
-          INNER JOIN doanh_nghiep dn ON a.id = dn.account_id 
-          WHERE dn.email_cong_ty = ? OR a.user_id = ?
-        `, [email, email]);
-        
+          FROM accounts a
+          INNER JOIN doanh_nghiep dn ON a.id = dn.account_id
+          WHERE dn.email_cong_ty = ? OR a.email = ? OR a.user_id = ?
+        `, [email, email, email]);
+
         if (doanhNghiepAccounts && doanhNghiepAccounts.length > 0) {
           foundAccount = doanhNghiepAccounts[0];
         }
       }
-      
+
       // Tìm trong bảng admin
       if (!foundAccount) {
         const adminAccounts = await connection.query(`
           SELECT a.id, a.user_id, a.role
-          FROM accounts a 
-          INNER JOIN admin ad ON a.id = ad.account_id 
-          WHERE ad.email = ? OR a.user_id = ?
+          FROM accounts a
+          INNER JOIN admin ad ON a.id = ad.account_id
+          WHERE a.email = ? OR a.user_id = ?
         `, [email, email]);
-        
+
         if (adminAccounts && adminAccounts.length > 0) {
           foundAccount = adminAccounts[0];
+        }
+      }
+
+      // Fallback: tìm trực tiếp qua accounts.email
+      if (!foundAccount) {
+        const directAccounts = await connection.query(
+          'SELECT id, user_id, role FROM accounts WHERE email = ? OR user_id = ?',
+          [email, email]
+        );
+        if (directAccounts && directAccounts.length > 0) {
+          foundAccount = directAccounts[0];
         }
       }
 

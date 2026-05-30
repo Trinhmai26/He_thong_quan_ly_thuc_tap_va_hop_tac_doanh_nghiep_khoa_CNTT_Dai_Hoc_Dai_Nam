@@ -1,0 +1,95 @@
+@startuml UC07
+
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam linetype polyline
+skinparam nodesep 55
+skinparam ranksep 70
+skinparam usecase {
+  BackgroundColor #FFFDE7
+  BorderColor #E65100
+  FontSize 11
+}
+skinparam actor {
+  BackgroundColor #FAFAFA
+  BorderColor #1A237E
+  FontStyle bold
+  FontSize 12
+}
+skinparam rectangle {
+  BackgroundColor #F5F7FA
+  BorderColor #455A64
+  BorderThickness 2
+  FontStyle bold
+}
+
+title
+  <b>UC07 – Cham diem & Danh gia</b>
+  He thong Quan ly Thuc tap – Khoa CNTT DH Dai Nam
+end title
+
+actor "Admin"        as Admin #FFD0A0
+actor "Giang vien"   as GV    #BBDEFB
+actor "Sinh vien"    as SV    #C8E6C9
+actor "Doanh nghiep" as DN    #FFF9C4
+
+Admin -[hidden]down-> GV
+GV    -[hidden]down-> SV
+SV    -[hidden]down-> DN
+
+rectangle "Cham diem & Danh gia" {
+
+  package "Quan ly Ket qua [Admin]" as P1 {
+    (Xem tat ca ket qua cham diem)   as UC01
+    (Duyet / Tu choi bao cao GV-DN)  as UC02
+    (Xuat ket qua ra Excel)          as UC03
+  }
+
+  package "Cham diem [Giang vien]" as P2 {
+    (Cham diem & nhan xet BC tuan)   as UC04
+    (Cham diem BC cuoi ky)           as UC05
+    (Nhap nhan xet cuoi ky)          as UC06
+    (Nop bao cao huong dan GV)       as UC07
+  }
+
+  package "Xem diem & Ket qua [SV]" as P3 {
+    (Xem diem BC tuan)               as UC08
+    (Xem diem & nhan xet BC cuoi ky) as UC09
+    (Xem danh gia tong the)          as UC10
+  }
+
+  package "Danh gia TTS [DN]" as P4 {
+    (Xem BC cuoi ky cua TTS)         as UC11
+    (Nhap diem & nhan xet danh gia)  as UC12
+    (Nop bao cao danh gia TTS)       as UC13
+  }
+}
+
+Admin --> UC01
+Admin --> UC02
+Admin --> UC03
+
+GV --> UC04
+GV --> UC05
+GV --> UC06
+GV --> UC07
+
+SV --> UC08
+SV --> UC09
+SV --> UC10
+
+DN --> UC11
+DN --> UC12
+DN --> UC13
+
+UC02 ..> UC01 : <<include>>
+UC05 ..> UC06 : <<include>>
+UC07 ..> UC05 : <<include>>
+UC12 ..> UC11 : <<include>>
+UC13 ..> UC12 : <<include>>
+UC04 ..> UC08 : <<extend>>
+UC05 ..> UC09 : <<extend>>
+UC12 ..> UC09 : <<extend>>
+
+@enduml

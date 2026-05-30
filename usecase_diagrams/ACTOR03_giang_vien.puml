@@ -1,0 +1,121 @@
+@startuml ACTOR03_Giang_Vien
+
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam nodesep 40
+skinparam ranksep 55
+skinparam usecase {
+  BackgroundColor #E3F2FD
+  BorderColor #0D47A1
+}
+skinparam actor {
+  BackgroundColor #BBDEFB
+  BorderColor #0D47A1
+  FontStyle bold
+  FontSize 13
+}
+skinparam rectangle {
+  BackgroundColor #E8F4FD
+  BorderColor #1565C0
+  BorderThickness 2
+}
+
+title
+  <b>Giang vien – Toan bo chuc nang</b>
+  He thong Quan ly Thuc tap - Khoa CNTT DH Dai Nam
+end title
+
+actor "Giang vien" as GV #BBDEFB
+
+rectangle "Chuc nang cua Giang vien" {
+
+  package "1. Xac thuc & Tai khoan" as P1 {
+    (Dang nhap he thong)              as UC101
+    (Dang xuat)                       as UC102
+    (Doi mat khau)                    as UC103
+    (Quen mat khau)                   as UC104
+    (Xac minh ma OTP)                 as UC105
+    (Dat lai mat khau moi)            as UC106
+  }
+
+  package "2. Ho so Ca nhan" as P2 {
+    (Xem ho so ca nhan)               as UC201
+    (Cap nhat thong tin ca nhan)      as UC202
+  }
+
+  package "3. Quan ly Sinh vien HD" as P3 {
+    (Xem ds SV duoc phan cong)        as UC301
+    (Xem chi tiet ho so SV)           as UC302
+    (Theo doi trang thai phuc tap SV) as UC303
+    (Theo doi tien do nop bao cao)    as UC304
+  }
+
+  package "4. Cham diem BC Tuan" as P4 {
+    (Xem ds bao cao tuan can cham)    as UC401
+    (Xem chi tiet bao cao tuan)       as UC402
+    (Nhap diem so 0-10)               as UC403
+    (Nhap nhan xet bao cao tuan)      as UC404
+    (Luu diem & nhan xet)             as UC405
+    (Xem lich su da cham diem)        as UC406
+  }
+
+  package "5. Cham diem BC Cuoi ky" as P5 {
+    (Xem bao cao cuoi ky cua SV)      as UC501
+    (Nhap diem cuoi ky GV)            as UC502
+    (Nhap nhan xet cuoi ky GV)        as UC503
+    (Nop bao cao huong dan GV)        as UC504
+  }
+
+  package "6. Dashboard & Thong ke" as P6 {
+    (Xem dashboard giang vien)        as UC601
+    (Xem thong ke diem so lop)        as UC602
+    (Xem ti le nop bao cao)           as UC603
+  }
+
+  package "7. Thong bao" as P7 {
+    (Xem danh sach thong bao)         as UC701
+    (Danh dau da doc)                 as UC702
+    (Xoa thong bao)                   as UC703
+    (Gui thong bao den SV cua minh)   as UC704
+    (Gui tin nhan Zalo cho SV)        as UC705
+  }
+}
+
+GV --> UC101
+GV --> UC102
+GV --> UC103
+GV --> UC104
+GV --> UC201
+GV --> UC202
+GV --> UC301
+GV --> UC302
+GV --> UC303
+GV --> UC304
+GV --> UC401
+GV --> UC402
+GV --> UC406
+GV --> UC501
+GV --> UC504
+GV --> UC601
+GV --> UC602
+GV --> UC603
+GV --> UC701
+GV --> UC702
+GV --> UC703
+GV --> UC704
+GV --> UC705
+
+UC104 ..> UC105 : <<include>>
+UC105 ..> UC106 : <<include>>
+UC405 ..> UC403 : <<include>>
+UC405 ..> UC404 : <<include>>
+UC402 ..> UC401 : <<include>>
+UC502 ..> UC501 : <<include>>
+UC503 ..> UC501 : <<include>>
+UC504 ..> UC502 : <<include>>
+UC504 ..> UC503 : <<include>>
+UC602 ..> UC601 : <<extend>>
+UC705 ..> UC704 : <<extend>>
+
+@enduml

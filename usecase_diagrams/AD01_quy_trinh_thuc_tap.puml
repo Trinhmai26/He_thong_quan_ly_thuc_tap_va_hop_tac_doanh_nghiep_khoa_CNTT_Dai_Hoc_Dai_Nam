@@ -1,0 +1,50 @@
+@startuml AD01
+title AD01 – Quy trinh Quan ly Thuc tap (Tong quat)
+
+|Admin|
+start
+:Tao dot thuc tap;
+:Mo thoi han dang ky;
+
+|Sinh vien|
+:Upload CV & Dang ky thuc tap;
+
+|Admin|
+if (Du dieu kien?) then (co)
+  :Duyet don dang ky;
+else (khong)
+  :Tu choi, thong bao SV;
+  stop
+endif
+
+:Phan cong SV – GV – DN\n(thu cong hoac tu dong);
+
+|Sinh vien|
+:Bat dau thuc tap;
+
+fork
+  |Sinh vien|
+  :Nop bao cao tuan;
+  |Giang vien|
+  :Cham diem bao cao tuan;
+fork again
+  |Giang vien|
+  :Theo doi tien do SV;
+end fork
+
+|Sinh vien|
+:Nop bao cao cuoi ky;
+
+fork
+  |Giang vien|
+  :Cham diem cuoi ky;
+fork again
+  |Doanh nghiep|
+  :Danh gia thuc tap sinh;
+end fork
+
+|Admin|
+:Tong hop ket qua & Dong dot;
+stop
+
+@enduml

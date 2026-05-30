@@ -1,0 +1,70 @@
+@startwbs FUNC03
+
+<style>
+wbsDiagram {
+  LineColor #455A64
+  BackgroundColor #FAFAFA
+  .root {
+    BackgroundColor #37474F
+    FontColor white
+    FontStyle bold
+  }
+  .module {
+    BackgroundColor #4527A0
+    FontColor white
+    FontStyle bold
+  }
+  .group {
+    BackgroundColor #EDE7F6
+    FontColor #311B92
+    FontStyle bold
+  }
+  .func {
+    BackgroundColor #FFFDE7
+    FontColor #333
+  }
+}
+</style>
+
+title FUNC03 – Phan ra chuc nang: Dot Thuc tap & Phan cong
+
+* He thong Quan ly Thuc tap <<root>>
+** 3. Quan ly Dot Thuc tap & Phan cong <<module>>
+*** 3.1. Quan ly Dot Thuc tap <<group>>
+**** Tao dot thuc tap moi <<func>>
+*** - Nhap ten, mo ta, thoi gian <<func>>
+*** - Cau hinh moc tien do <<func>>
+**** Cap nhat thong tin dot <<func>>
+**** Xoa dot thuc tap <<func>>
+**** Xem danh sach tat ca dot <<func>>
+**** Xem chi tiet dot <<func>>
+*** 3.2. Quan ly Thoi han Dang ky <<group>>
+**** Mo thoi han dang ky <<func>>
+**** Dong thoi han dang ky <<func>>
+**** Gia han thoi han dang ky <<func>>
+**** Kiem tra trang thai thoi han <<func>>
+*** 3.3. Quan ly Nguoi tham gia <<group>>
+**** Import ds tham gia tu Excel <<func>>
+**** Xem danh sach tham gia <<func>>
+**** Xuat du lieu dot ra Excel <<func>>
+*** 3.4. Phan cong Thu cong (Admin) <<group>>
+**** Chon sinh vien <<func>>
+**** Chon giang vien huong dan <<func>>
+**** Chon doanh nghiep thuc tap <<func>>
+**** Luu phan cong SV-GV-DN <<func>>
+**** Huy phan cong <<func>>
+*** 3.5. Phan cong Tu dong (Admin) <<group>>
+**** Chay thuat toan phan cong <<func>>
+*** - Ket hop nguyen vong SV <<func>>
+*** - Can bang tai GV (15-20 SV/GV) <<func>>
+*** - Phu hop linh vuc DN <<func>>
+**** Xem ket qua preview <<func>>
+**** Xac nhan / Bo phan cong <<func>>
+*** 3.6. Phan cong GV Tu dong <<group>>
+**** Xao tron ds giang vien <<func>>
+**** Phan bo deu theo tai trong <<func>>
+*** - Thac si: toi da 15 SV <<func>>
+*** - Tien si: toi da 20 SV <<func>>
+**** Cap nhat GV cho tung SV <<func>>
+
+@endwbs
